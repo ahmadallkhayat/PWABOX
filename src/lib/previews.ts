@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import type { RefObject } from 'react';
-import { Platform, type View } from 'react-native';
+import { PixelRatio, Platform, type View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 /**
@@ -12,14 +12,29 @@ function previewFolder() {
   return new Directory(Paths.document, 'bookmark-previews');
 }
 
-/** Screenshots `view` into a new preview file and returns its name, or undefined on failure. */
+const PREVIEW_WIDTH_PX = 600;
+
+/**
+ * Screenshots `view` (whose on-screen size is `size`, in points) into a new preview file and
+ * returns its name, or undefined on failure.
+ */
 export async function capturePreview(
   view: RefObject<View | null>,
+  size: { width: number; height: number },
   bookmarkId: string
 ): Promise<string | undefined> {
-  if (Platform.OS === 'web') return undefined;
+  if (Platform.OS === 'web' || !size.width || !size.height) return undefined;
   try {
-    const temporary = await captureRef(view, { format: 'jpg', quality: 0.6, result: 'tmpfile' });
+    // Full-resolution screenshots are ~1 MB each; a preview only needs to be card-sized.
+    const width = Math.min(PREVIEW_WIDTH_PX, Math.round(size.width * PixelRatio.get()));
+    const height = Math.round((width * size.height) / size.width);
+    const temporary = await captureRef(view, {
+      format: 'jpg',
+      quality: 0.7,
+      width,
+      height,
+      result: 'tmpfile',
+    });
 
     const folder = previewFolder();
     folder.create({ intermediates: true, idempotent: true });

@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { lockLandscape, lockPortrait } from '@/lib/orientation';
+import { capturePreview } from '@/lib/previews';
 import { useSites, type Site } from '@/lib/sites';
 
 const FULLSCREEN_MESSAGE = 'pwabox:fullscreen';
@@ -82,14 +83,42 @@ export function SiteView({ site }: { site: Site }) {
   const [currentTitle, setCurrentTitle] = useState('');
   const [progress, setProgress] = useState(0);
   const [showBookmarks, setShowBookmarks] = useState(false);
-  const { addBookmark, removeBookmark } = useSites();
+  const { addBookmark, removeBookmark, setBookmarkPreview } = useSites();
+
+  // The WebView's wrapper, screenshotted for bookmark previews.
+  const pageView = useRef<View>(null);
+  const pageSize = useRef({ width: 0, height: 0 });
 
   const currentBookmark = site.bookmarks?.find((b) => b.url === currentUrl);
 
-  function toggleBookmark() {
-    if (currentBookmark) removeBookmark(site.id, currentBookmark.id);
-    else addBookmark(site.id, { url: currentUrl, title: pageTitle(currentTitle, currentUrl, site.name) });
+  function savePreview(bookmarkId: string) {
+    capturePreview(pageView, pageSize.current, bookmarkId).then((preview) => {
+      if (preview) setBookmarkPreview(site.id, bookmarkId, preview);
+    });
   }
+
+  function toggleBookmark() {
+    if (currentBookmark) {
+      removeBookmark(site.id, currentBookmark.id);
+      return;
+    }
+    const bookmark = addBookmark(site.id, {
+      url: currentUrl,
+      title: pageTitle(currentTitle, currentUrl, site.name),
+    });
+    savePreview(bookmark.id);
+  }
+
+  // Bookmarks saved before previews existed (or whose capture failed) get one on their next visit,
+  // once the page has had a moment to render.
+  const missingPreviewId = currentBookmark && !currentBookmark.preview ? currentBookmark.id : null;
+  const pageLoaded = progress >= 1;
+  useEffect(() => {
+    if (!missingPreviewId || !pageLoaded) return;
+    const timer = setTimeout(() => savePreview(missingPreviewId), 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savePreview only reads refs and ids.
+  }, [missingPreviewId, pageLoaded]);
 
   function openPage(url: string) {
     setShowBookmarks(false);
@@ -168,50 +197,59 @@ export function SiteView({ site }: { site: Site }) {
         onRemove={(bookmarkId) => removeBookmark(site.id, bookmarkId)}
         onClose={() => setShowBookmarks(false)}
       />
-      <WebView
-        ref={webView}
-        source={{ uri: site.url }}
-        style={[styles.webView, site.backgroundColor ? { backgroundColor: site.backgroundColor } : null]}
-        // Keep logins, local storage and service workers around between launches.
-        domStorageEnabled
-        sharedCookiesEnabled
-        thirdPartyCookiesEnabled
-        cacheEnabled
-        // Feel like an app rather than a browser tab.
-        allowsBackForwardNavigationGestures
-        pullToRefreshEnabled
-        allowsInlineMediaPlayback
-        allowsFullscreenVideo
-        allowsPictureInPictureMediaPlayback
-        injectedJavaScriptBeforeContentLoaded={FULLSCREEN_WATCHER}
-        injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
-        onMessage={handleMessage}
-        setSupportMultipleWindows={false}
-        overScrollMode="never"
-        onNavigationStateChange={(state) => {
-          setCanGoBack(state.canGoBack);
-          setCurrentUrl(state.url);
-          setCurrentTitle(state.title);
-        }}
-        onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
-        onShouldStartLoadWithRequest={(request) => {
-          // mailto:, tel:, intent:, app deep links... belong to other apps.
-          if (/^(https?|about|data|blob):/i.test(request.url)) return true;
-          Linking.openURL(request.url).catch(() => {});
-          return false;
-        }}
-        renderError={(_domain, _code, description) => (
-          <ThemedView style={styles.error}>
-            <ThemedText type="subtitle">Can’t open {site.name}</ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.centered}>
-              {description}
-            </ThemedText>
-            <Pressable onPress={() => webView.current?.reload()} style={styles.retry}>
-              <ThemedText style={styles.retryText}>Try again</ThemedText>
-            </Pressable>
-          </ThemedView>
-        )}
-      />
+      <View
+        ref={pageView}
+        // Android can only screenshot a WebView through a real (non-collapsed) parent view.
+        collapsable={false}
+        style={styles.webView}
+        onLayout={(event) => {
+          pageSize.current = event.nativeEvent.layout;
+        }}>
+        <WebView
+          ref={webView}
+          source={{ uri: site.url }}
+          style={[styles.webView, site.backgroundColor ? { backgroundColor: site.backgroundColor } : null]}
+          // Keep logins, local storage and service workers around between launches.
+          domStorageEnabled
+          sharedCookiesEnabled
+          thirdPartyCookiesEnabled
+          cacheEnabled
+          // Feel like an app rather than a browser tab.
+          allowsBackForwardNavigationGestures
+          pullToRefreshEnabled
+          allowsInlineMediaPlayback
+          allowsFullscreenVideo
+          allowsPictureInPictureMediaPlayback
+          injectedJavaScriptBeforeContentLoaded={FULLSCREEN_WATCHER}
+          injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
+          onMessage={handleMessage}
+          setSupportMultipleWindows={false}
+          overScrollMode="never"
+          onNavigationStateChange={(state) => {
+            setCanGoBack(state.canGoBack);
+            setCurrentUrl(state.url);
+            setCurrentTitle(state.title);
+          }}
+          onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
+          onShouldStartLoadWithRequest={(request) => {
+            // mailto:, tel:, intent:, app deep links... belong to other apps.
+            if (/^(https?|about|data|blob):/i.test(request.url)) return true;
+            Linking.openURL(request.url).catch(() => {});
+            return false;
+          }}
+          renderError={(_domain, _code, description) => (
+            <ThemedView style={styles.error}>
+              <ThemedText type="subtitle">Can’t open {site.name}</ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.centered}>
+                {description}
+              </ThemedText>
+              <Pressable onPress={() => webView.current?.reload()} style={styles.retry}>
+                <ThemedText style={styles.retryText}>Try again</ThemedText>
+              </Pressable>
+            </ThemedView>
+          )}
+        />
+      </View>
     </View>
   );
 }

@@ -1,13 +1,17 @@
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
-import type { ComponentProps, ReactNode } from 'react';
 import { FlatList, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SiteIcon } from '@/components/site-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { Site } from '@/lib/sites';
+import { previewUri } from '@/lib/previews';
+import type { Bookmark, Site } from '@/lib/sites';
+
+const ACCENT = '#208AEF';
 
 type BookmarksSheetProps = {
   site: Site;
@@ -19,7 +23,7 @@ type BookmarksSheetProps = {
   onClose: () => void;
 };
 
-/** The pages saved inside one site, plus a shortcut back to where the site starts. */
+/** The pages saved inside one site, as preview cards, plus a shortcut back to where it starts. */
 export function BookmarksSheet({
   site,
   visible,
@@ -31,6 +35,7 @@ export function BookmarksSheet({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const bookmarks = site.bookmarks ?? [];
+  const onStartPage = currentUrl === site.url;
 
   return (
     <Modal
@@ -38,10 +43,9 @@ export function BookmarksSheet({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}>
-      <ThemedView
-        style={[styles.sheet, { paddingTop: Platform.OS === 'ios' ? 0 : insets.top }]}>
+      <ThemedView style={[styles.sheet, { paddingTop: Platform.OS === 'ios' ? 0 : insets.top }]}>
         <View style={styles.header}>
-          <ThemedText type="smallBold" style={styles.headerTitle}>
+          <ThemedText type="smallBold" style={styles.headerTitle} numberOfLines={1}>
             {site.name} bookmarks
           </ThemedText>
           <Pressable onPress={onClose} hitSlop={12}>
@@ -54,15 +58,26 @@ export function BookmarksSheet({
         <FlatList
           data={bookmarks}
           keyExtractor={(bookmark) => bookmark.id}
+          numColumns={2}
+          columnWrapperStyle={styles.column}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + Spacing.four }]}
           ListHeaderComponent={
-            <Row
-              icon={{ ios: 'house', android: 'home', web: 'home' }}
-              title="Start page"
-              subtitle={displayUrl(site.url)}
-              current={currentUrl === site.url}
+            <Pressable
               onPress={() => onOpen(site.url)}
-            />
+              style={({ pressed }) => [
+                styles.startRow,
+                { backgroundColor: theme.backgroundElement },
+                onStartPage && styles.current,
+                pressed && styles.pressed,
+              ]}>
+              <SiteIcon name={site.name} iconUrl={site.iconUrl} themeColor={site.themeColor} size={36} />
+              <View style={styles.flex}>
+                <ThemedText type="smallBold">Start page</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                  {displayUrl(site.url)}
+                </ThemedText>
+              </View>
+            </Pressable>
           }
           ListEmptyComponent={
             <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
@@ -71,26 +86,12 @@ export function BookmarksSheet({
             </ThemedText>
           }
           renderItem={({ item }) => (
-            <Row
-              icon={{ ios: 'bookmark', android: 'bookmark', web: 'bookmark' }}
-              title={item.title}
-              subtitle={displayUrl(item.url)}
+            <BookmarkCard
+              bookmark={item}
+              site={site}
               current={currentUrl === item.url}
-              onPress={() => onOpen(item.url)}
-              trailing={
-                <Pressable
-                  onPress={() => onRemove(item.id)}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${item.title}`}
-                  style={({ pressed }) => [styles.remove, pressed && styles.pressed]}>
-                  <SymbolView
-                    name={{ ios: 'trash', android: 'delete', web: 'delete' }}
-                    tintColor={theme.textSecondary}
-                    size={18}
-                  />
-                </Pressable>
-              }
+              onOpen={() => onOpen(item.url)}
+              onRemove={() => onRemove(item.id)}
             />
           )}
         />
@@ -99,40 +100,61 @@ export function BookmarksSheet({
   );
 }
 
-function Row({
-  icon,
-  title,
-  subtitle,
+function BookmarkCard({
+  bookmark,
+  site,
   current,
-  onPress,
-  trailing,
+  onOpen,
+  onRemove,
 }: {
-  icon: ComponentProps<typeof SymbolView>['name'];
-  title: string;
-  subtitle: string;
+  bookmark: Bookmark;
+  site: Site;
   current: boolean;
-  onPress: () => void;
-  trailing?: ReactNode;
+  onOpen: () => void;
+  onRemove: () => void;
 }) {
   const theme = useTheme();
   return (
     <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: current ? theme.backgroundSelected : theme.backgroundElement },
-        pressed && styles.pressed,
-      ]}>
-      <SymbolView name={icon} tintColor={theme.text} size={18} />
-      <View style={styles.rowText}>
-        <ThemedText type="smallBold" numberOfLines={1}>
-          {title}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {subtitle}
-        </ThemedText>
+      onPress={onOpen}
+      accessibilityLabel={`Open ${bookmark.title}`}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      <View
+        style={[
+          styles.thumbnail,
+          { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected },
+          current && styles.current,
+        ]}>
+        {bookmark.preview ? (
+          <Image
+            source={{ uri: previewUri(bookmark.preview) }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            contentPosition="top"
+            transition={150}
+          />
+        ) : (
+          <SiteIcon name={site.name} iconUrl={site.iconUrl} themeColor={site.themeColor} size={48} />
+        )}
+        <Pressable
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${bookmark.title}`}
+          style={({ pressed }) => [styles.removeBadge, pressed && styles.pressed]}>
+          <SymbolView
+            name={{ ios: 'trash', android: 'delete', web: 'delete' }}
+            tintColor="#ffffff"
+            size={14}
+          />
+        </Pressable>
       </View>
-      {trailing}
+      <ThemedText type="smallBold" numberOfLines={2}>
+        {bookmark.title}
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        {displayUrl(bookmark.url)}
+      </ThemedText>
     </Pressable>
   );
 }
@@ -144,6 +166,9 @@ function displayUrl(url: string) {
 
 const styles = StyleSheet.create({
   sheet: {
+    flex: 1,
+  },
+  flex: {
     flex: 1,
   },
   header: {
@@ -163,21 +188,47 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: Spacing.three,
-    gap: Spacing.two,
+    gap: Spacing.four,
   },
-  row: {
+  column: {
+    justifyContent: 'space-between',
+  },
+  startRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
+    padding: Spacing.three,
     borderRadius: Spacing.three,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  rowText: {
-    flex: 1,
+  card: {
+    width: '48%',
+    gap: Spacing.one,
   },
-  remove: {
-    padding: Spacing.one,
+  thumbnail: {
+    aspectRatio: 3 / 4,
+    borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.one,
+  },
+  current: {
+    borderColor: ACCENT,
+    borderWidth: 2,
+  },
+  removeBadge: {
+    position: 'absolute',
+    top: Spacing.two,
+    right: Spacing.two,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.6,
@@ -185,6 +236,5 @@ const styles = StyleSheet.create({
   empty: {
     textAlign: 'center',
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
   },
 });
