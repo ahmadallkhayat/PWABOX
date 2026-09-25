@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { HistoryProvider } from '@/features/history/history-store';
 import { AppLockProvider } from '@/features/lock/app-lock';
 import { SettingsProvider } from '@/features/settings/settings-store';
 import { SitesProvider } from '@/features/sites/sites-store';
@@ -45,10 +46,12 @@ export default function RootLayout() {
         <SettingsProvider>
           <AppLockProvider>
             <SitesProvider>
-              <Stack screenOptions={{ contentStyle: { backgroundColor: colors.background } }}>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="site/[id]" options={{ headerShown: false }} />
-              </Stack>
+              <HistoryProvider>
+                <Stack screenOptions={{ contentStyle: { backgroundColor: colors.background } }}>
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="site/[id]" options={{ headerShown: false }} />
+                </Stack>
+              </HistoryProvider>
             </SitesProvider>
           </AppLockProvider>
         </SettingsProvider>

@@ -19,6 +19,9 @@ type AddressBarProps = {
    */
   install: 'available' | 'suggested' | 'loading' | 'hidden';
   onSubmit: (text: string) => void;
+  /** Typing started / stopped, and what's typed so far: for suggestions under the bar. */
+  onEditingChange?: (editing: boolean) => void;
+  onQueryChange?: (text: string) => void;
   onBack: () => void;
   onForward: () => void;
   onReload: () => void;
@@ -37,6 +40,8 @@ export function AddressBar({
   progress,
   install,
   onSubmit,
+  onEditingChange,
+  onQueryChange,
   onBack,
   onForward,
   onReload,
@@ -67,12 +72,21 @@ export function AddressBar({
           ref={field}
           style={styles.field}
           value={focused ? text : displayAddress(url)}
-          onChangeText={setText}
+          onChangeText={(value) => {
+            setText(value);
+            onQueryChange?.(value);
+          }}
           onFocus={() => {
             setText(url);
             setFocused(true);
+            onEditingChange?.(true);
+            // The address of the page shown isn't a search: suggestions start from recent pages.
+            onQueryChange?.('');
           }}
-          onBlur={() => setFocused(false)}
+          onBlur={() => {
+            setFocused(false);
+            onEditingChange?.(false);
+          }}
           onSubmitEditing={() => {
             if (text.trim()) onSubmit(text);
           }}

@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { BackHandler, Keyboard, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { AddressBar } from '@/features/browser/address-bar';
@@ -16,10 +16,14 @@ import { findEngine, resolveAddressInput } from '@/features/browser/search-engin
 import { useFullscreenVideo } from '@/features/browser/use-fullscreen-video';
 import { useInstallOffer } from '@/features/browser/use-install-offer';
 import { useNavigationGuard } from '@/features/browser/use-navigation-guard';
+import { HistoryList, HistoryRow } from '@/features/history/history-list';
+import { useHistory } from '@/features/history/history-store';
+import { HistorySuggestions } from '@/features/history/history-suggestions';
+import { useHistoryRecorder } from '@/features/history/use-history-recorder';
 import { useSettings } from '@/features/settings/settings-store';
 import type { SiteInfo } from '@/features/sites/site-info';
 import { InstallSiteDialog } from '@/features/sites/install-site-dialog';
-import { EmptyState, haptic, Icon, space, Toast, useTheme } from '@/ui';
+import { EmptyState, haptic, Icon, layout, ListRow, Separator, Sheet, space, Text, Toast, useTheme } from '@/ui';
 
 /** The Browser tab: an address/search bar over one web page, with the same protections as apps. */
 export function BrowserView() {
@@ -40,6 +44,12 @@ export function BrowserView() {
   const [lookingUp, setLookingUp] = useState(false);
   const [message, setMessage] = useState<{ title: string; id: number } | null>(null);
   const dismissMessage = useCallback(() => setMessage(null), [setMessage]);
+  const [editing, setEditing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const history = useHistory();
+  const browserHistory = history.entriesFor('browser');
+  const recordHistory = useHistoryRecorder('browser');
 
   const guard = useNavigationGuard({
     currentUrl,
@@ -61,6 +71,13 @@ export function BrowserView() {
       return () => subscription.remove();
     }, [canGoBack])
   );
+
+  /** Opens a page picked from history (suggestions, start page or the history sheet). */
+  function openFromHistory(url: string) {
+    Keyboard.dismiss();
+    setShowHistory(false);
+    open(url);
+  }
 
   function open(input: string) {
     const url = resolveAddressInput(input, engine);
@@ -129,6 +146,8 @@ export function BrowserView() {
         progress={progress}
         install={lookingUp ? 'loading' : install.offer ? 'suggested' : 'available'}
         onSubmit={open}
+        onEditingChange={setEditing}
+        onQueryChange={setQuery}
         onBack={() => webView.current?.goBack()}
         onForward={() => webView.current?.goForward()}
         onReload={() => webView.current?.reload()}
@@ -171,6 +190,7 @@ export function BrowserView() {
               setCanGoBack(state.canGoBack);
               setCanGoForward(state.canGoForward);
               install.pageChanged(state.url);
+              recordHistory(state);
             }}
             onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
             renderError={(_domain, _code, description) => (
@@ -182,19 +202,78 @@ export function BrowserView() {
             )}
           />
         ) : (
-          <View style={styles.start}>
-            <Icon name="globe" size={48} color="textTertiary" />
-            <EmptyState
-              title="Browse the web"
-              message={`Search with ${engine.name} or type a web address above. Sites that can be installed can be added to your Apps.`}
-            />
-          </View>
+          <StartPage
+            engineName={engine.name}
+            recent={browserHistory.slice(0, 5)}
+            onOpen={openFromHistory}
+            onShowAll={() => setShowHistory(true)}
+          />
+        )}
+
+        {editing && (
+          <HistorySuggestions
+            entries={browserHistory}
+            query={query}
+            onOpen={openFromHistory}
+            onShowAll={() => {
+              Keyboard.dismiss();
+              setShowHistory(true);
+            }}
+          />
         )}
 
         {notice && <Toast {...notice} />}
       </View>
 
       <InstallSiteDialog info={installing} onClose={() => setInstalling(null)} />
+      <Sheet visible={showHistory} title="History" onClose={() => setShowHistory(false)}>
+        <HistoryList
+          entries={browserHistory}
+          onOpen={openFromHistory}
+          onRemove={history.remove}
+          onClear={() => history.clear('browser')}
+        />
+      </Sheet>
+    </View>
+  );
+}
+
+/** What the Browser shows before any page: a hint and the most recent pages. */
+function StartPage({
+  engineName,
+  recent,
+  onOpen,
+  onShowAll,
+}: {
+  engineName: string;
+  recent: ReturnType<typeof useHistory>['entries'];
+  onOpen: (url: string) => void;
+  onShowAll: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.start}>
+      <View style={styles.startHero}>
+        <Icon name="globe" size={48} color="textTertiary" />
+        <EmptyState
+          title="Browse the web"
+          message={`Search with ${engineName} or type a web address above. Sites that can be installed can be added to your Apps.`}
+        />
+      </View>
+      {recent.length > 0 && (
+        <View>
+          <Text variant="footnoteStrong" color="textSecondary" style={styles.recentHeading}>
+            RECENT
+          </Text>
+          {recent.map((entry, index) => (
+            <View key={entry.id}>
+              {index > 0 && <Separator inset={layout.gutter} />}
+              <HistoryRow entry={entry} onOpen={onOpen} highlight={colors.surfaceSelected} />
+            </View>
+          ))}
+          <ListRow icon="history" title="Show all history" accessory={{ type: 'link' }} onPress={onShowAll} />
+        </View>
+      )}
     </View>
   );
 }
@@ -213,9 +292,16 @@ const styles = StyleSheet.create({
   },
   start: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    gap: space.xl,
+    paddingBottom: space.xl,
+  },
+  startHero: {
+    alignItems: 'center',
     gap: space.lg,
-    paddingBottom: space.xxxl,
+  },
+  recentHeading: {
+    paddingHorizontal: layout.gutter,
+    paddingBottom: space.sm,
   },
 });

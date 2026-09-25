@@ -4,14 +4,16 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
-import { BookmarksSheet } from '@/features/bookmarks/bookmarks-sheet';
 import { useBookmarkActions } from '@/features/bookmarks/use-bookmark-actions';
 import { PageError } from '@/features/browser/page-error';
 import { FULLSCREEN_MESSAGE, parsePageMessage, POPUP_MESSAGE } from '@/features/browser/scripts/bridge';
 import { buildPageScript } from '@/features/browser/scripts/page-script';
+import { SiteLibrarySheet } from '@/features/browser/site-library-sheet';
 import { SiteTopBar } from '@/features/browser/site-top-bar';
 import { useFullscreenVideo } from '@/features/browser/use-fullscreen-video';
 import { useNavigationGuard } from '@/features/browser/use-navigation-guard';
+import { siteHistorySource } from '@/features/history/history-store';
+import { useHistoryRecorder } from '@/features/history/use-history-recorder';
 import { useSettings } from '@/features/settings/settings-store';
 import { useSites, type Site } from '@/features/sites/sites-store';
 import { Toast, useTheme } from '@/ui';
@@ -46,6 +48,7 @@ export function SiteView({ site }: { site: Site }) {
     onAllowSite: (otherSite) => allowRedirectsTo(site.id, otherSite),
   });
   const handleFullscreenMessage = useFullscreenVideo(webView);
+  const recordHistory = useHistoryRecorder(siteHistorySource(site.id));
 
   // Android's back button walks back through the site's history before leaving it.
   useFocusEffect(
@@ -87,12 +90,12 @@ export function SiteView({ site }: { site: Site }) {
         onToggleBookmark={toggleBookmark}
         onShowBookmarks={() => setShowBookmarks(true)}
       />
-      <BookmarksSheet
+      <SiteLibrarySheet
         site={site}
         visible={showBookmarks}
         currentUrl={currentUrl}
         onOpen={openPage}
-        onRemove={removeBookmark}
+        onRemoveBookmark={removeBookmark}
         onClose={() => setShowBookmarks(false)}
       />
       <View
@@ -137,6 +140,7 @@ export function SiteView({ site }: { site: Site }) {
             setCanGoBack(state.canGoBack);
             setCurrentUrl(state.url);
             setCurrentTitle(state.title);
+            recordHistory(state);
           }}
           onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
           renderError={(_domain, _code, description) => (

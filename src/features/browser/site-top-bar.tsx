@@ -66,7 +66,12 @@ export function SiteTopBar({
           />
         )}
         {onShowBookmarks && (
-          <IconButton icon="bookmarks" color={foreground} accessibilityLabel="Bookmarks" onPress={onShowBookmarks} />
+          <IconButton
+            icon="bookmarks"
+            color={foreground}
+            accessibilityLabel="Bookmarks and history"
+            onPress={onShowBookmarks}
+          />
         )}
         <IconButton icon="reload" color={foreground} accessibilityLabel="Reload" onPress={onReload} />
       </View>

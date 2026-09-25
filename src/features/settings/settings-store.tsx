@@ -24,6 +24,8 @@ export type Settings = {
   searchEngineId: string;
   /** Search engines the user added. */
   customSearchEngines: SearchEngine[];
+  /** Remember pages visited in apps and the browser. */
+  saveHistory: boolean;
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +38,7 @@ const DEFAULT_SETTINGS: Settings = {
   appearance: 'system',
   searchEngineId: DEFAULT_ENGINE_ID,
   customSearchEngines: [],
+  saveHistory: true,
 };
 
 const STORAGE_KEY = 'pwabox.settings.v1';

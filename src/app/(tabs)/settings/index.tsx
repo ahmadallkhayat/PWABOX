@@ -3,9 +3,10 @@ import { useRouter } from 'expo-router';
 import { Alert, Platform } from 'react-native';
 
 import { findEngine } from '@/features/browser/search-engines';
+import { useHistory } from '@/features/history/history-store';
 import { useAppLock } from '@/features/lock/app-lock';
 import { useSettings, type LockTimeout } from '@/features/settings/settings-store';
-import type { AppearancePreference } from '@/ui';
+import { haptic, type AppearancePreference } from '@/ui';
 import { useSites } from '@/features/sites/sites-store';
 import { ListRow, ListSection, Screen } from '@/ui';
 
@@ -28,10 +29,35 @@ export default function SettingsScreen() {
   const { sites } = useSites();
   const router = useRouter();
   const engine = findEngine(settings.searchEngineId, settings.customSearchEngines);
+  const history = useHistory();
 
   const lockSupported = Platform.OS !== 'web';
   const methodLabel = method?.label ?? 'screen lock';
   const bookmarkCount = sites.reduce((total, site) => total + (site.bookmarks?.length ?? 0), 0);
+
+  function confirmClearHistory() {
+    const count = history.entries.length;
+    haptic('warning');
+    if (Platform.OS === 'web') {
+      if (window.confirm('Clear all history? Bookmarks stay.')) history.clear();
+      return;
+    }
+    Alert.alert(
+      'Clear all history?',
+      `${count === 1 ? '1 page' : `${count} pages`} from your apps and the browser will be removed. Bookmarks stay.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            haptic('success');
+            history.clear();
+          },
+        },
+      ]
+    );
+  }
 
   async function toggleLock(on: boolean) {
     if (on && !method?.available) {
@@ -103,6 +129,23 @@ export default function SettingsScreen() {
           accessory={{ type: 'link', text: engine.name }}
           onPress={() => router.push('/settings/search-engine')}
         />
+      </ListSection>
+
+      <ListSection
+        title="History"
+        footer="Pages you visit in your apps and the browser. Each app's history is in its bookmarks sheet; the browser's is under its address bar.">
+        <ListRow
+          icon="history"
+          title="Save history"
+          accessory={{
+            type: 'switch',
+            value: settings.saveHistory,
+            onValueChange: (saveHistory) => updateSettings({ saveHistory }),
+          }}
+        />
+        {history.entries.length > 0 && (
+          <ListRow icon="delete" title="Clear all history" destructive onPress={confirmClearHistory} />
+        )}
       </ListSection>
 
       <ListSection
