@@ -17,6 +17,17 @@ export function useInstallOffer() {
   const [prompt, setPrompt] = useState<SiteInfo | null>(null);
 
   const lookups = useRef(new Map<string, Promise<SiteInfo | null>>());
+
+  /** The site's name, icon and start address: from its manifest, else the page. Cached per site. */
+  function lookUpSite(pageUrl: string) {
+    const site = siteOf(pageUrl);
+    let lookup = lookups.current.get(site);
+    if (!lookup) {
+      lookup = fetchSiteInfo(pageUrl).catch(() => null);
+      lookups.current.set(site, lookup);
+    }
+    return lookup;
+  }
   const prompted = useRef(new Set<string>());
   const currentSite = useRef('');
 
@@ -36,12 +47,7 @@ export function useInstallOffer() {
     const site = siteOf(pageUrl);
     if (!site || isSaved(pageUrl)) return;
 
-    let lookup = lookups.current.get(site);
-    if (!lookup) {
-      lookup = fetchSiteInfo(pageUrl).catch(() => null);
-      lookups.current.set(site, lookup);
-    }
-    const info = await lookup;
+    const info = await lookUpSite(pageUrl);
     // Ignore it if the user has moved on to another site meanwhile.
     if (!info || siteOf(pageUrl) !== currentSite.current) return;
 
@@ -54,6 +60,17 @@ export function useInstallOffer() {
 
   const dismissPrompt = useCallback(() => setPrompt(null), [setPrompt]);
 
+  /**
+   * For the "Add as app" button on any page, installable or not. Falls back to the site's address
+   * and favicon when it can't be looked up (the page may still work fine as an app).
+   */
+  async function infoForPage(pageUrl: string): Promise<SiteInfo> {
+    const info = await lookUpSite(pageUrl);
+    if (info) return info;
+    const { hostname, origin } = new URL(pageUrl);
+    return { url: pageUrl, name: hostname.replace(/^www\./, ''), iconUrl: `${origin}/favicon.ico` };
+  }
+
   return {
     /** Installable site for the current page (while it isn't in Apps yet). */
     offer: offer && !isSaved(offer.url) ? offer : null,
@@ -61,5 +78,7 @@ export function useInstallOffer() {
     dismissPrompt,
     pageChanged,
     manifestFound,
+    infoForPage,
+    isSaved,
   };
 }

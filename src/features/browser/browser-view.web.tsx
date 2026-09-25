@@ -24,7 +24,8 @@ export function BrowserView() {
         canGoBack={false}
         canGoForward={false}
         progress={1}
-        installable={false}
+        // Adding needs the phone app's site lookup, which browsers block (CORS).
+        install="hidden"
         onSubmit={(input) => setUrl(resolveAddressInput(input, engine) ?? url)}
         onBack={() => {}}
         onForward={() => {}}

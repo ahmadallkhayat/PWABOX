@@ -19,7 +19,7 @@ import { useNavigationGuard } from '@/features/browser/use-navigation-guard';
 import { useSettings } from '@/features/settings/settings-store';
 import type { SiteInfo } from '@/features/sites/site-info';
 import { InstallSiteDialog } from '@/features/sites/install-site-dialog';
-import { EmptyState, Icon, space, Toast, useTheme } from '@/ui';
+import { EmptyState, haptic, Icon, space, Toast, useTheme } from '@/ui';
 
 /** The Browser tab: an address/search bar over one web page, with the same protections as apps. */
 export function BrowserView() {
@@ -37,6 +37,9 @@ export function BrowserView() {
   // Browsing isn't tied to an app, so "Allow" on a blocked redirect lasts for this session.
   const [allowedSites, setAllowedSites] = useState<string[]>([]);
   const [installing, setInstalling] = useState<SiteInfo | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [message, setMessage] = useState<{ title: string; id: number } | null>(null);
+  const dismissMessage = useCallback(() => setMessage(null), [setMessage]);
 
   const guard = useNavigationGuard({
     currentUrl,
@@ -68,6 +71,22 @@ export function BrowserView() {
     else setSourceUrl(url);
   }
 
+  async function addCurrentPage() {
+    if (install.isSaved(currentUrl)) {
+      haptic('warning');
+      setMessage({ title: `${displayHost(currentUrl)} is already in your Apps`, id: Date.now() });
+      return;
+    }
+    if (install.offer) {
+      setInstalling(install.offer);
+      return;
+    }
+    setLookingUp(true);
+    const info = await install.infoForPage(currentUrl);
+    setLookingUp(false);
+    setInstalling(info);
+  }
+
   const pageScript = buildPageScript({ ...settings, detectManifest: true });
   const notice = guard.blocked
     ? {
@@ -81,7 +100,9 @@ export function BrowserView() {
         onDismiss: guard.dismissBlocked,
         resetKey: `blocked-${guard.blocked.id}`,
       }
-    : install.prompt
+    : message
+      ? { icon: 'apps' as const, title: message.title, onDismiss: dismissMessage, resetKey: `message-${message.id}` }
+      : install.prompt
       ? {
           icon: 'install' as const,
           title: `Add ${install.prompt.name} as an app?`,
@@ -106,12 +127,12 @@ export function BrowserView() {
         canGoBack={canGoBack}
         canGoForward={canGoForward}
         progress={progress}
-        installable={!!install.offer}
+        install={lookingUp ? 'loading' : install.offer ? 'suggested' : 'available'}
         onSubmit={open}
         onBack={() => webView.current?.goBack()}
         onForward={() => webView.current?.goForward()}
         onReload={() => webView.current?.reload()}
-        onInstall={() => setInstalling(install.offer)}
+        onInstall={addCurrentPage}
       />
 
       <View style={styles.fill} onTouchStart={guard.markTouch}>

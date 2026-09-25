@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { StyleSheet, View, type TextInput } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, type TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, IconButton, layout, radius, space, TextField, useTheme } from '@/ui';
@@ -13,8 +13,11 @@ type AddressBarProps = {
   canGoForward: boolean;
   /** 0–1 page load progress; hidden once complete. */
   progress: number;
-  /** Offer the "add as app" button. */
-  installable: boolean;
+  /**
+   * The "Add as app" button: highlighted when the page is known to be installable, plain
+   * otherwise (any page can be added), a spinner while it's being looked up.
+   */
+  install: 'available' | 'suggested' | 'loading' | 'hidden';
   onSubmit: (text: string) => void;
   onBack: () => void;
   onForward: () => void;
@@ -32,7 +35,7 @@ export function AddressBar({
   canGoBack,
   canGoForward,
   progress,
-  installable,
+  install,
   onSubmit,
   onBack,
   onForward,
@@ -85,10 +88,23 @@ export function AddressBar({
           <Button title="Cancel" variant="plain" onPress={() => field.current?.blur()} haptic={false} />
         ) : (
           <>
-            {installable && (
-              <IconButton icon="install" color="accent" accessibilityLabel="Add as app" onPress={onInstall} />
-            )}
-            {url ? <IconButton icon="reload" accessibilityLabel="Reload" onPress={onReload} /> : null}
+            {url ? (
+              <>
+                {install === 'loading' ? (
+                  <View style={styles.spinner}>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  </View>
+                ) : install === 'hidden' ? null : (
+                  <IconButton
+                    icon="install"
+                    color={install === 'suggested' ? 'accent' : 'text'}
+                    accessibilityLabel="Add as app"
+                    onPress={onInstall}
+                  />
+                )}
+                <IconButton icon="reload" accessibilityLabel="Reload" onPress={onReload} />
+              </>
+            ) : null}
           </>
         )}
       </View>
@@ -124,6 +140,10 @@ const styles = StyleSheet.create({
     minHeight: layout.minTouch - 4,
     paddingVertical: space.sm,
     borderRadius: radius.pill,
+  },
+  spinner: {
+    width: layout.minTouch - 8,
+    alignItems: 'center',
   },
   progress: {
     position: 'absolute',
