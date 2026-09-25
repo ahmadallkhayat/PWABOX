@@ -24,7 +24,9 @@ type SitesContextValue = {
   sites: Site[];
   loaded: boolean;
   addSite: (info: SiteInfo) => Site;
-  removeSite: (id: string) => void;
+  removeSites: (ids: string[]) => void;
+  /** Puts sites in the given order (by id); any not listed keep their place at the end. */
+  reorderSites: (ids: string[]) => void;
   addBookmark: (siteId: string, page: { url: string; title: string }) => Bookmark;
   removeBookmark: (siteId: string, bookmarkId: string) => void;
   setBookmarkPreview: (siteId: string, bookmarkId: string, preview: string) => void;
@@ -67,9 +69,21 @@ export function SitesProvider({ children }: { children: ReactNode }) {
     return site;
   }
 
-  function removeSite(id: string) {
-    sites.find((site) => site.id === id)?.bookmarks?.forEach((b) => deletePreview(b.preview));
-    update((current) => current.filter((site) => site.id !== id));
+  function removeSites(ids: string[]) {
+    const removing = new Set(ids);
+    sites
+      .filter((site) => removing.has(site.id))
+      .forEach((site) => site.bookmarks?.forEach((b) => deletePreview(b.preview)));
+    update((current) => current.filter((site) => !removing.has(site.id)));
+  }
+
+  function reorderSites(ids: string[]) {
+    update((current) => {
+      const byId = new Map(current.map((site) => [site.id, site]));
+      const ordered = ids.flatMap((id) => byId.get(id) ?? []);
+      const rest = current.filter((site) => !ids.includes(site.id));
+      return [...ordered, ...rest];
+    });
   }
 
   function updateBookmarks(siteId: string, next: (bookmarks: Bookmark[]) => Bookmark[]) {
@@ -108,7 +122,16 @@ export function SitesProvider({ children }: { children: ReactNode }) {
 
   return (
     <SitesContext
-      value={{ sites, loaded, addSite, removeSite, addBookmark, removeBookmark, setBookmarkPreview }}>
+      value={{
+        sites,
+        loaded,
+        addSite,
+        removeSites,
+        reorderSites,
+        addBookmark,
+        removeBookmark,
+        setBookmarkPreview,
+      }}>
       {children}
     </SitesContext>
   );

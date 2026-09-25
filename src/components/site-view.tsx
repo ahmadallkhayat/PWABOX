@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { BookmarksSheet } from '@/components/bookmarks-sheet';
@@ -8,6 +9,8 @@ import { SiteTopBar } from '@/components/site-top-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { useAppLock } from '@/lib/app-lock';
 import { lockLandscape, lockPortrait } from '@/lib/orientation';
 import { capturePreview } from '@/lib/previews';
 import { useSites, type Site } from '@/lib/sites';
@@ -74,6 +77,18 @@ const FULLSCREEN_WATCHER = `(function () {
 })();
 true;`;
 
+/** Leaves any fullscreen video, so it can't stay visible on top of the lock screen. */
+const EXIT_FULLSCREEN = `(function () {
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+    if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+    document.querySelectorAll('video').forEach(function (v) {
+      if (v.webkitDisplayingFullscreen) v.webkitExitFullscreen();
+    });
+  } catch (e) {}
+})();
+true;`;
+
 /** Runs the saved site full-screen in a WebView, like an installed PWA. */
 export function SiteView({ site }: { site: Site }) {
   const router = useRouter();
@@ -84,6 +99,9 @@ export function SiteView({ site }: { site: Site }) {
   const [progress, setProgress] = useState(0);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const { addBookmark, removeBookmark, setBookmarkPreview } = useSites();
+  const { locked, setActivityHold } = useAppLock();
+  const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   // The WebView's wrapper, screenshotted for bookmark previews.
   const pageView = useRef<View>(null);
@@ -145,6 +163,13 @@ export function SiteView({ site }: { site: Site }) {
   const fullscreenMeasured = useRef(false);
   const fullscreenOn = useRef(false);
 
+  useEffect(() => {
+    if (locked) webView.current?.injectJavaScript(EXIT_FULLSCREEN);
+  }, [locked]);
+
+  // Watching a fullscreen video without touching the screen isn't "inactive".
+  useEffect(() => () => setActivityHold(false), [setActivityHold]);
+
   function handleMessage(event: WebViewMessageEvent) {
     let message: FullscreenMessage;
     try {
@@ -157,11 +182,13 @@ export function SiteView({ site }: { site: Site }) {
     if (!message.on) {
       fullscreenOn.current = false;
       fullscreenMeasured.current = false;
+      setActivityHold(false);
       lockPortrait();
       return;
     }
     if (!message.measured && fullscreenMeasured.current) return;
     fullscreenOn.current = true;
+    setActivityHold(true);
     fullscreenMeasured.current = message.measured;
 
     const lock = message.landscape ? lockLandscape : lockPortrait;
@@ -177,7 +204,16 @@ export function SiteView({ site }: { site: Site }) {
   const currentHost = hostnameOf(currentUrl);
 
   return (
-    <View style={styles.container}>
+    // Keeps the site above Android's navigation bar / the iPhone home indicator, like an
+    // installed PWA, with the strip below painted in the site's own background color.
+    <View
+      style={[
+        styles.container,
+        {
+          paddingBottom: insets.bottom,
+          backgroundColor: site.backgroundColor ?? theme.background,
+        },
+      ]}>
       <SiteTopBar
         title={site.name}
         subtitle={currentHost && currentHost !== siteHost ? currentHost : undefined}
