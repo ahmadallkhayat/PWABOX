@@ -10,6 +10,7 @@ import type { ColorName } from '@/ui/theme/tokens';
 const ICONS = {
   add: { ios: 'plus', android: 'add', web: 'add' },
   back: { ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' },
+  backup: { ios: 'square.and.arrow.up', android: 'upload', web: 'upload' },
   apps: { ios: 'square.grid.2x2', android: 'apps', web: 'apps' },
   block: { ios: 'nosign', android: 'block', web: 'block' },
   blocked: { ios: 'hand.raised.fill', android: 'block', web: 'block' },
@@ -34,6 +35,7 @@ const ICONS = {
     web: 'alt_route',
   },
   reload: { ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' },
+  restore: { ios: 'square.and.arrow.down', android: 'download', web: 'download' },
   search: { ios: 'magnifyingglass', android: 'search', web: 'search' },
   settings: { ios: 'gearshape', android: 'settings', web: 'settings' },
 } satisfies Record<string, SymbolViewProps['name']>;

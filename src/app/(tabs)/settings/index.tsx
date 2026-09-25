@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { Alert, Platform } from 'react-native';
 
+import { describeBackup, useBackup, type RestoreMode } from '@/features/backup/use-backup';
 import { findEngine } from '@/features/browser/search-engines';
 import { useHistory } from '@/features/history/history-store';
 import { useAppLock } from '@/features/lock/app-lock';
@@ -30,10 +31,57 @@ export default function SettingsScreen() {
   const router = useRouter();
   const engine = findEngine(settings.searchEngineId, settings.customSearchEngines);
   const history = useHistory();
+  const backup = useBackup();
 
   const lockSupported = Platform.OS !== 'web';
   const methodLabel = method?.label ?? 'screen lock';
   const bookmarkCount = sites.reduce((total, site) => total + (site.bookmarks?.length ?? 0), 0);
+
+  async function saveBackup() {
+    try {
+      const name = await backup.saveBackup();
+      if (!name) return;
+      haptic('success');
+      Alert.alert('Backup saved', `Saved as ${name}. Keep it somewhere safe, like Downloads or a cloud folder.`);
+    } catch (error) {
+      haptic('error');
+      Alert.alert('Backup failed', (error as Error).message);
+    }
+  }
+
+  async function restoreBackup() {
+    let picked;
+    try {
+      picked = await backup.pickBackup();
+    } catch (error) {
+      haptic('error');
+      Alert.alert('Can’t restore', (error as Error).message);
+      return;
+    }
+    if (!picked) return;
+    const file = picked;
+    const made = file.exportedAt ? ` from ${new Date(file.exportedAt).toLocaleDateString()}` : '';
+
+    const apply = (mode: RestoreMode) => {
+      const { apps } = backup.restore(file, mode);
+      haptic('success');
+      Alert.alert(
+        'Restored',
+        mode === 'replace'
+          ? `PWABOX now matches the backup: ${describeBackup(file)}.`
+          : apps === 0
+            ? 'You already have every app in this backup.'
+            : `Added ${apps === 1 ? '1 app' : `${apps} apps`} with their bookmarks.`
+      );
+    };
+
+    haptic('warning');
+    Alert.alert(`Restore this backup${made}?`, `It has ${describeBackup(file)}.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Add missing apps', onPress: () => apply('merge') },
+      { text: 'Replace everything', style: 'destructive', onPress: () => apply('replace') },
+    ]);
+  }
 
   function confirmClearHistory() {
     const count = history.entries.length;
@@ -195,6 +243,15 @@ export default function SettingsScreen() {
               onValueChange: (haptics) => updateSettings({ haptics }),
             }}
           />
+        </ListSection>
+      )}
+
+      {Platform.OS !== 'web' && (
+        <ListSection
+          title="Backup"
+          footer="Saves your apps, their bookmarks, your settings and history to a file you choose where to keep. The app lock isn't included, and bookmark previews are taken again when you next visit.">
+          <ListRow icon="backup" title="Back up to a file" onPress={saveBackup} />
+          <ListRow icon="restore" title="Restore from a file" onPress={restoreBackup} />
         </ListSection>
       )}
 

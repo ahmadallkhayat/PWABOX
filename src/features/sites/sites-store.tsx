@@ -33,6 +33,10 @@ type SitesContextValue = {
   removeBookmark: (siteId: string, bookmarkId: string) => void;
   setBookmarkPreview: (siteId: string, bookmarkId: string, preview: string) => void;
   allowRedirectsTo: (siteId: string, otherSite: string) => void;
+  /** Replaces every app (restoring a backup). */
+  replaceSites: (sites: Site[]) => void;
+  /** Adds apps whose address isn't saved yet (restoring a backup); returns how many were added. */
+  mergeSites: (sites: Site[], sameSite: (a: string, b: string) => boolean) => number;
 };
 
 const STORAGE_KEY = 'pwabox.sites.v1';
@@ -129,6 +133,20 @@ export function SitesProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function replaceSites(next: Site[]) {
+    sites.forEach((site) => site.bookmarks?.forEach((b) => deletePreview(b.preview)));
+    update(() => next);
+  }
+
+  function mergeSites(incoming: Site[], sameSite: (a: string, b: string) => boolean) {
+    const added = incoming
+      .filter((site) => !sites.some((existing) => sameSite(existing.url, site.url)))
+      // Fresh ids so they can't collide with apps already here.
+      .map((site) => ({ ...site, id: newId() }));
+    if (added.length > 0) update((current) => [...current, ...added]);
+    return added.length;
+  }
+
   function findBookmark(siteId: string, bookmarkId: string) {
     return sites.find((site) => site.id === siteId)?.bookmarks?.find((b) => b.id === bookmarkId);
   }
@@ -145,6 +163,8 @@ export function SitesProvider({ children }: { children: ReactNode }) {
         removeBookmark,
         setBookmarkPreview,
         allowRedirectsTo,
+        replaceSites,
+        mergeSites,
       }}>
       {children}
     </SitesContext>

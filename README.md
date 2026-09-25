@@ -4,7 +4,7 @@ Save any website as an app: PWABOX reads the site's web app manifest for its nam
 colors, puts it on a home grid, and opens it full screen in a WebView like an installed PWA.
 Also: a Browser tab with your choice of search engine that offers to add installable sites,
 bookmarks with previews, history for every app and the browser, fullscreen video that rotates to fit, app lock (Face ID /
-fingerprint / PIN), and ad, pop-up and redirect blocking.
+fingerprint / PIN), ad, pop-up and redirect blocking, and backup / restore to a file.
 
 Built with Expo SDK 57 and Expo Router.
 
@@ -28,6 +28,7 @@ src/
                 scripts/ injected into pages (ad/pop-up blocking, fullscreen, manifest detector)
     bookmarks/  bookmark actions, preview screenshots, bookmarks grid
     history/    visited pages per app and for the browser: store, recorder, list, suggestions
+    backup/     backup file format (build + validate) and saving/restoring it via the file pickers
     lock/       app lock (biometrics + inactivity) and lock screen
     settings/   persisted settings
     splash/     hand-over from the native splash screen
