@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { layout, space } from '@/ui/theme/tokens';
@@ -14,9 +14,11 @@ export function BottomBar({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
+    // Fade, not slide: on Android (New Architecture) buttons inside a view that animates in with
+    // a translation don't receive taps (react-native-reanimated#6676).
     <Animated.View
-      entering={SlideInDown.duration(200)}
-      exiting={SlideOutDown.duration(200)}
+      entering={FadeIn.duration(150)}
+      exiting={FadeOut.duration(150)}
       style={[
         styles.bar,
         {

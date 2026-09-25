@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { haptic } from '@/ui/haptics';
 import { Icon, type IconName } from '@/ui/icon';
@@ -40,9 +40,11 @@ export function Toast({
   }, [resetKey, duration, onDismiss]);
 
   return (
+    // Fade only: a sliding entrance would leave the action button untappable on Android
+    // (react-native-reanimated#6676).
     <Animated.View
-      entering={FadeInDown.duration(180)}
-      exiting={FadeOutDown.duration(180)}
+      entering={FadeIn.duration(180)}
+      exiting={FadeOut.duration(180)}
       style={styles.wrapper}
       pointerEvents="box-none">
       <View
