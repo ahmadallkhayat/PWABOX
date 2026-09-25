@@ -13,7 +13,7 @@ import { SiteTopBar } from '@/features/browser/site-top-bar';
 import { useFullscreenVideo } from '@/features/browser/use-fullscreen-video';
 import { useNavigationGuard } from '@/features/browser/use-navigation-guard';
 import { useSettings } from '@/features/settings/settings-store';
-import type { Site } from '@/features/sites/sites-store';
+import { useSites, type Site } from '@/features/sites/sites-store';
 import { Toast, useTheme } from '@/ui';
 
 /** Runs a saved site full screen in a WebView, like an installed PWA. */
@@ -36,7 +36,15 @@ export function SiteView({ site }: { site: Site }) {
     currentTitle,
     pageLoaded: progress >= 1,
   });
-  const guard = useNavigationGuard({ site, currentUrl, webView });
+  const { allowRedirectsTo } = useSites();
+  const guard = useNavigationGuard({
+    homeUrl: site.url,
+    currentUrl,
+    webView,
+    allowedSites: site.allowedRedirects,
+    // Remembered for this app, so a login on another domain only needs allowing once.
+    onAllowSite: (otherSite) => allowRedirectsTo(site.id, otherSite),
+  });
   const handleFullscreenMessage = useFullscreenVideo(webView);
 
   // Android's back button walks back through the site's history before leaving it.

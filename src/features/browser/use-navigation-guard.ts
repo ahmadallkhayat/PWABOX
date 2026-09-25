@@ -5,7 +5,6 @@ import type { ShouldStartLoadRequest, WebViewOpenWindowEvent } from 'react-nativ
 
 import { isAdHost, siteOf } from '@/features/browser/scripts/blocking';
 import { useSettings } from '@/features/settings/settings-store';
-import { useSites, type Site } from '@/features/sites/sites-store';
 
 export type BlockedItem = {
   kind: 'popup' | 'redirect';
@@ -24,19 +23,25 @@ const USER_ACTION_WINDOW_MS = 2000;
 const REDIRECT_CHAIN_MS = 3000;
 
 /**
- * Decides which navigations and pop-ups a site may make (per the blocking settings), and keeps
+ * Decides which navigations and pop-ups a page may make (per the blocking settings), and keeps
  * the last blocked one so the screen can offer to open it anyway.
  */
 export function useNavigationGuard({
-  site,
+  homeUrl,
   currentUrl,
   webView,
+  allowedSites = [],
+  onAllowSite,
 }: {
-  site: Site;
+  /** A saved app's own address: it may always navigate within its own site. */
+  homeUrl?: string;
   currentUrl: string;
   webView: RefObject<WebView | null>;
+  /** Other sites the user allowed redirects to (see `siteOf`). */
+  allowedSites?: string[];
+  /** The user chose "Allow" on a blocked redirect to this site. */
+  onAllowSite?: (site: string) => void;
 }) {
-  const { allowRedirectsTo } = useSites();
   const { blockAds, blockPopups, blockRedirects } = useSettings().settings;
 
   const lastTouchAt = useRef(0);
@@ -57,13 +62,13 @@ export function useNavigationGuard({
     setBlocked({ kind, url, id: blockCount.current });
   }
 
-  /** The site itself, the site currently shown, or one the user already allowed. */
+  /** The app's own site, the site currently shown, or one the user already allowed. */
   function isKnownSite(url: string) {
     const target = siteOf(url);
     return (
-      target === siteOf(site.url) ||
+      (!!homeUrl && target === siteOf(homeUrl)) ||
       target === siteOf(currentUrl) ||
-      !!site.allowedRedirects?.includes(target)
+      allowedSites.includes(target)
     );
   }
 
@@ -113,8 +118,8 @@ export function useNavigationGuard({
 
   function allowBlocked(item: BlockedItem) {
     setBlocked(null);
-    // Allowing a redirect is remembered for this app (e.g. a login on another domain).
-    if (item.kind === 'redirect') allowRedirectsTo(site.id, siteOf(item.url));
+    // Allowing a redirect is remembered (e.g. a login on another domain).
+    if (item.kind === 'redirect') onAllowSite?.(siteOf(item.url));
     navigateTo(item.url);
   }
 
@@ -123,6 +128,10 @@ export function useNavigationGuard({
     dismissBlocked,
     allowBlocked,
     navigateTo,
+    /** Let the next load of `url` through, e.g. one the app starts by changing the WebView's source. */
+    allowNavigation: (url: string) => {
+      allowOnce.current.add(url);
+    },
     handleOpenWindow,
     shouldStartLoad,
     /** A pop-up the page's own script was talked out of (see POPUP_BLOCK_SCRIPT). */

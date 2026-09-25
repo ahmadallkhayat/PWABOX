@@ -23,6 +23,10 @@ export default function TabsLayout() {
             md="apps"
           />
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="browser">
+          <NativeTabs.Trigger.Label>Browser</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf={{ default: 'safari', selected: 'safari.fill' }} md="travel_explore" />
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="settings">
           <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} md="settings" />

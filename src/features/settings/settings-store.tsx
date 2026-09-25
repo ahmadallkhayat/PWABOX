@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
+import { DEFAULT_ENGINE_ID, type SearchEngine } from '@/features/browser/search-engines';
 import { setAppearance, setHapticsEnabled, type AppearancePreference } from '@/ui';
 
 /** When the app locks: as soon as it's left (0), or after this many ms without being used. */
@@ -19,6 +20,10 @@ export type Settings = {
   haptics: boolean;
   /** Light, dark, or follow the phone. */
   appearance: AppearancePreference;
+  /** The browser's search engine: a built-in id or a custom engine's id. */
+  searchEngineId: string;
+  /** Search engines the user added. */
+  customSearchEngines: SearchEngine[];
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -29,6 +34,8 @@ const DEFAULT_SETTINGS: Settings = {
   blockRedirects: true,
   haptics: true,
   appearance: 'system',
+  searchEngineId: DEFAULT_ENGINE_ID,
+  customSearchEngines: [],
 };
 
 const STORAGE_KEY = 'pwabox.settings.v1';

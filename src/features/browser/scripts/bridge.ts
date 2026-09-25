@@ -5,11 +5,13 @@
 
 export const FULLSCREEN_MESSAGE = 'pwabox:fullscreen';
 export const POPUP_MESSAGE = 'pwabox:popup';
+export const MANIFEST_MESSAGE = 'pwabox:manifest';
 
 export type PageMessage =
   | { type: typeof FULLSCREEN_MESSAGE; on: false }
   | { type: typeof FULLSCREEN_MESSAGE; on: true; landscape: boolean; measured: boolean }
-  | { type: typeof POPUP_MESSAGE; url: string };
+  | { type: typeof POPUP_MESSAGE; url: string }
+  | { type: typeof MANIFEST_MESSAGE; pageUrl: string };
 
 /**
  * `postToApp(payload)` for page scripts. On iOS scripts also run inside frames, where only the
@@ -22,7 +24,7 @@ export const POST_TO_APP = `function postToApp(payload) {
     else if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(message);
   }`;
 
-const TYPES = new Set<string>([FULLSCREEN_MESSAGE, POPUP_MESSAGE]);
+const TYPES = new Set<string>([FULLSCREEN_MESSAGE, POPUP_MESSAGE, MANIFEST_MESSAGE]);
 
 /** One of our messages, or null for anything else a page posts. */
 export function parsePageMessage(data: string): PageMessage | null {

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { fetchSiteInfo, normalizeUrl, type SiteInfo } from '@/features/sites/site-info';
-import { SiteIcon } from '@/features/sites/site-icon';
+import { SitePreviewForm } from '@/features/sites/site-preview-form';
 import { useSites } from '@/features/sites/sites-store';
-import { Button, Dialog, haptic, space, Surface, Text, TextField } from '@/ui';
+import { Button, Dialog, haptic, space, Text, TextField } from '@/ui';
 
 type Status =
   | { kind: 'idle' }
@@ -31,7 +31,6 @@ function AddSiteForm({
 }) {
   const { addSite } = useSites();
   const [address, setAddress] = useState('');
-  const [name, setName] = useState('');
   const [status, setStatusState] = useState<Status>({ kind: 'idle' });
   const loading = status.kind === 'loading';
 
@@ -53,7 +52,6 @@ function AddSiteForm({
     setStatus({ kind: 'loading' });
     try {
       const info = await fetchSiteInfo(url);
-      setName(info.name);
       setStatus({ kind: 'found', info });
     } catch (error) {
       // The site might still work fine in the WebView (e.g. it blocks plain HTTP clients),
@@ -68,9 +66,9 @@ function AddSiteForm({
     }
   }
 
-  function save(info: SiteInfo, displayName = info.name) {
+  function save(info: SiteInfo, name = info.name) {
     haptic('success');
-    addSite({ ...info, name: displayName.trim() || info.name });
+    addSite({ ...info, name });
     onClose();
   }
 
@@ -123,32 +121,7 @@ function AddSiteForm({
       )}
 
       {status.kind === 'found' && (
-        <Surface padding="xl" radius="xl" style={styles.preview}>
-          <SiteIcon
-            name={name || status.info.name}
-            iconUrl={status.info.iconUrl}
-            themeColor={status.info.themeColor}
-            size={72}
-          />
-          <View style={styles.field}>
-            <Text variant="footnoteStrong" color="textSecondary">
-              Name
-            </Text>
-            <TextField
-              onSurface
-              value={name}
-              onChangeText={setName}
-              placeholder={status.info.name}
-              returnKeyType="done"
-              maxLength={40}
-              accessibilityLabel="Name"
-            />
-            <Text variant="caption" color="textTertiary" numberOfLines={2}>
-              {status.info.url}
-            </Text>
-          </View>
-          <Button title="Add to PWABOX" onPress={() => save(status.info, name)} stretch haptic={false} />
-        </Surface>
+        <SitePreviewForm info={status.info} onSave={(name) => save(status.info, name)} />
       )}
     </>
   );
@@ -166,13 +139,5 @@ const styles = StyleSheet.create({
   message: {
     alignItems: 'center',
     gap: space.md,
-  },
-  preview: {
-    alignItems: 'center',
-    gap: space.lg,
-  },
-  field: {
-    alignSelf: 'stretch',
-    gap: space.sm,
   },
 });

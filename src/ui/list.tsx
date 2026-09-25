@@ -49,7 +49,9 @@ export function ListSection({
 type Accessory =
   | { type: 'switch'; value: boolean; onValueChange: (value: boolean) => void; disabled?: boolean }
   | { type: 'check'; checked: boolean }
-  | { type: 'value'; text: string };
+  | { type: 'value'; text: string }
+  /** Opens another screen: an optional current value and a chevron. */
+  | { type: 'link'; text?: string };
 
 type ListRowProps = {
   title: string;
@@ -87,6 +89,16 @@ export function ListRow({ title, subtitle, icon, accessory, onPress, accessibili
       )}
       {accessory?.type === 'check' && accessory.checked && <Icon name="check" color="accent" />}
       {accessory?.type === 'value' && <Text color="textSecondary">{accessory.text}</Text>}
+      {accessory?.type === 'link' && (
+        <View style={styles.link}>
+          {accessory.text && (
+            <Text color="textSecondary" numberOfLines={1}>
+              {accessory.text}
+            </Text>
+          )}
+          <Icon name="chevron" size={14} color="textTertiary" />
+        </View>
+      )}
     </>
   );
 
@@ -128,5 +140,11 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     gap: space.xxs,
+  },
+  link: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    maxWidth: '50%',
   },
 });

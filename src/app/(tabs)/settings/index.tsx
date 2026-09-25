@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 import { Alert, Platform } from 'react-native';
 
+import { findEngine } from '@/features/browser/search-engines';
 import { useAppLock } from '@/features/lock/app-lock';
 import { useSettings, type LockTimeout } from '@/features/settings/settings-store';
 import type { AppearancePreference } from '@/ui';
@@ -24,6 +26,8 @@ export default function SettingsScreen() {
   const { settings, updateSettings } = useSettings();
   const { method, authenticate } = useAppLock();
   const { sites } = useSites();
+  const router = useRouter();
+  const engine = findEngine(settings.searchEngineId, settings.customSearchEngines);
 
   const lockSupported = Platform.OS !== 'web';
   const methodLabel = method?.label ?? 'screen lock';
@@ -91,6 +95,15 @@ export default function SettingsScreen() {
           ))}
         </ListSection>
       )}
+
+      <ListSection title="Browser">
+        <ListRow
+          icon="search"
+          title="Search engine"
+          accessory={{ type: 'link', text: engine.name }}
+          onPress={() => router.push('/settings/search-engine')}
+        />
+      </ListSection>
 
       <ListSection
         title="Blocking"

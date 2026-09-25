@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
 import { layout, radius, space, typography } from '@/ui/theme/tokens';
@@ -6,6 +7,7 @@ import { useTheme } from '@/ui/theme/use-theme';
 type TextFieldProps = TextInputProps & {
   /** Draw on the page background instead of a surface (for fields inside a card). */
   onSurface?: boolean;
+  ref?: Ref<TextInput>;
 };
 
 export function TextField({ style, onSurface, ...rest }: TextFieldProps) {
