@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { SymbolView } from 'expo-symbols';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -113,6 +113,34 @@ export default function SettingsScreen() {
           </Section>
         )}
 
+        <Section
+          title="Blocking"
+          footer="When a pop-up or redirect is blocked, a message at the bottom of the site lets you open it anyway. Changes apply the next time you open a site.">
+          <SwitchRow
+            icon={{ ios: 'nosign', android: 'block', web: 'block' }}
+            title="Block ads"
+            subtitle="Hides ads and stops ad networks from loading"
+            value={settings.blockAds}
+            onValueChange={(blockAds) => updateSettings({ blockAds })}
+          />
+          <SwitchRow
+            icon={{ ios: 'macwindow.badge.plus', android: 'open_in_new_off', web: 'open_in_new_off' }}
+            title="Block pop-ups"
+            subtitle="Stops sites opening new windows to other websites"
+            value={settings.blockPopups}
+            onValueChange={(blockPopups) => updateSettings({ blockPopups })}
+            divider
+          />
+          <SwitchRow
+            icon={{ ios: 'arrow.triangle.turn.up.right.circle', android: 'alt_route', web: 'alt_route' }}
+            title="Block redirects"
+            subtitle="Stops pages sending you to other websites unless you tap a link"
+            value={settings.blockRedirects}
+            onValueChange={(blockRedirects) => updateSettings({ blockRedirects })}
+            divider
+          />
+        </Section>
+
         <Section title="About">
           <InfoRow label="Version" value={Constants.expoConfig?.version ?? '1.0.0'} />
           <InfoRow label="Apps" value={String(sites.length)} divider />
@@ -137,6 +165,36 @@ function Section({ title, footer, children }: { title: string; footer?: string; 
           {footer}
         </ThemedText>
       )}
+    </View>
+  );
+}
+
+function SwitchRow({
+  icon,
+  title,
+  subtitle,
+  value,
+  onValueChange,
+  divider,
+}: {
+  icon: ComponentProps<typeof SymbolView>['name'];
+  title: string;
+  subtitle: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  divider?: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.row, divider && [styles.divider, { borderTopColor: theme.backgroundSelected }]]}>
+      <SymbolView name={icon} tintColor={theme.text} size={20} />
+      <View style={styles.flex}>
+        <ThemedText>{title}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {subtitle}
+        </ThemedText>
+      </View>
+      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: ACCENT }} />
     </View>
   );
 }

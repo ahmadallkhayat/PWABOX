@@ -3,7 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import type {
+  ShouldStartLoadRequest,
+  WebViewOpenWindowEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
+import { BlockedBanner, type BlockedItem } from '@/components/blocked-banner';
 import { BookmarksSheet } from '@/components/bookmarks-sheet';
 import { SiteTopBar } from '@/components/site-top-bar';
 import { ThemedText } from '@/components/themed-text';
@@ -11,8 +16,16 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppLock } from '@/lib/app-lock';
+import {
+  AD_BLOCK_SCRIPT,
+  isAdHost,
+  POPUP_BLOCK_SCRIPT,
+  POPUP_MESSAGE,
+  siteOf,
+} from '@/lib/blocking';
 import { lockLandscape, lockPortrait } from '@/lib/orientation';
 import { capturePreview } from '@/lib/previews';
+import { useSettings } from '@/lib/settings';
 import { useSites, type Site } from '@/lib/sites';
 
 const FULLSCREEN_MESSAGE = 'pwabox:fullscreen';
@@ -64,10 +77,34 @@ const FULLSCREEN_WATCHER = `(function () {
       }, { once: true });
     }
   }
+  // Android can move a fullscreen video onto a separate layer behind the page as soon as
+  // nothing is drawn over it (i.e. when the player's controls fade), and inside this WebView
+  // that layer ends up hidden behind the fullscreen view's black background: the picture goes
+  // black. A practically invisible layer over the video keeps it composited with the page, as
+  // it is while the controls show. It lets every touch through to the player.
+  var shield = null;
+  function addShield(el) {
+    removeShield();
+    if (!el || el.tagName === 'VIDEO' || el.tagName === 'IFRAME' || !el.appendChild) return;
+    shield = document.createElement('div');
+    shield.setAttribute('data-pwabox-shield', '');
+    shield.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;' +
+      'background:rgba(0,0,0,0.01);z-index:2147483647;';
+    el.appendChild(shield);
+  }
+  function removeShield() {
+    if (shield && shield.parentNode) shield.parentNode.removeChild(shield);
+    shield = null;
+  }
   function onChange() {
     var el = fullscreenElement();
-    if (el) report(findVideo(el));
-    else post({ on: false });
+    if (el) {
+      addShield(el);
+      report(findVideo(el));
+    } else {
+      removeShield();
+      post({ on: false });
+    }
   }
   document.addEventListener('fullscreenchange', onChange);
   document.addEventListener('webkitfullscreenchange', onChange);
@@ -89,6 +126,15 @@ const EXIT_FULLSCREEN = `(function () {
 })();
 true;`;
 
+/** iOS navigation types that only happen when the user acts (link tap, form, back/forward). */
+const USER_NAVIGATION_TYPES = new Set(['click', 'formsubmit', 'formresubmit', 'backforward', 'reload']);
+
+// Android doesn't say whether a navigation came from the user, so a touch this recent counts.
+const USER_ACTION_WINDOW_MS = 2000;
+
+// A user-started navigation may bounce through a few server redirects; trust those too.
+const REDIRECT_CHAIN_MS = 3000;
+
 /** Runs the saved site full-screen in a WebView, like an installed PWA. */
 export function SiteView({ site }: { site: Site }) {
   const router = useRouter();
@@ -98,7 +144,9 @@ export function SiteView({ site }: { site: Site }) {
   const [currentTitle, setCurrentTitle] = useState('');
   const [progress, setProgress] = useState(0);
   const [showBookmarks, setShowBookmarks] = useState(false);
-  const { addBookmark, removeBookmark, setBookmarkPreview } = useSites();
+  const { addBookmark, removeBookmark, setBookmarkPreview, allowRedirectsTo } = useSites();
+  const { settings } = useSettings();
+  const { blockAds, blockPopups, blockRedirects } = settings;
   const { locked, setActivityHold } = useAppLock();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -141,8 +189,95 @@ export function SiteView({ site }: { site: Site }) {
   function openPage(url: string) {
     setShowBookmarks(false);
     if (url === currentUrl) return;
+    navigateTo(url);
+  }
+
+  // ---- Pop-up and redirect blocking ----
+
+  const lastTouchAt = useRef(0);
+  const trustedUntil = useRef(0);
+  // Navigations the app itself starts (bookmarks, "Open"/"Allow" on the banner).
+  const allowOnce = useRef(new Set<string>());
+  const blockCount = useRef(0);
+  const [blocked, setBlocked] = useState<BlockedItem | null>(null);
+  const dismissBlocked = useCallback(() => setBlocked(null), [setBlocked]);
+
+  function navigateTo(url: string) {
+    allowOnce.current.add(url);
     webView.current?.injectJavaScript(`window.location.href = ${JSON.stringify(url)}; true;`);
   }
+
+  function reportBlocked(kind: BlockedItem['kind'], url: string) {
+    blockCount.current += 1;
+    setBlocked({ kind, url, id: blockCount.current });
+  }
+
+  /** The site itself, the site currently shown, or one the user already allowed. */
+  function isKnownSite(url: string) {
+    const target = siteOf(url);
+    return (
+      target === siteOf(site.url) ||
+      target === siteOf(currentUrl) ||
+      !!site.allowedRedirects?.includes(target)
+    );
+  }
+
+  function handleOpenWindow(event: WebViewOpenWindowEvent) {
+    const url = event.nativeEvent.targetUrl;
+    if (!url) return;
+    if (blockAds && isAdHost(url)) return reportBlocked('popup', url);
+    if (blockPopups && !isKnownSite(url)) return reportBlocked('popup', url);
+    // An app has one window: open it in place, like an installed PWA does.
+    navigateTo(url);
+  }
+
+  function shouldStartLoad(request: ShouldStartLoadRequest) {
+    const { url } = request;
+    // mailto:, tel:, intent:, app deep links... belong to other apps.
+    if (!/^(https?|about|data|blob):/i.test(url)) {
+      Linking.openURL(url).catch(() => {});
+      return false;
+    }
+    if (!/^https?:/i.test(url)) return true;
+
+    // iOS also asks about frames inside the page; only the page itself can be redirected.
+    const topFrame = request.isTopFrame !== false;
+    if (blockAds && isAdHost(url)) {
+      if (topFrame) reportBlocked('redirect', url);
+      return false;
+    }
+    if (!topFrame) return true;
+
+    if (allowOnce.current.delete(url)) {
+      trustedUntil.current = Date.now() + REDIRECT_CHAIN_MS;
+      return true;
+    }
+    if (!blockRedirects || isKnownSite(url)) return true;
+
+    const byUser =
+      Platform.OS === 'ios'
+        ? USER_NAVIGATION_TYPES.has(request.navigationType)
+        : Date.now() - lastTouchAt.current < USER_ACTION_WINDOW_MS;
+    if (byUser || Date.now() < trustedUntil.current) {
+      trustedUntil.current = Date.now() + REDIRECT_CHAIN_MS;
+      return true;
+    }
+    reportBlocked('redirect', url);
+    return false;
+  }
+
+  function allowBlocked(item: BlockedItem) {
+    setBlocked(null);
+    // Allowing a redirect is remembered for this app (e.g. a login on another domain).
+    if (item.kind === 'redirect') allowRedirectsTo(site.id, siteOf(item.url));
+    navigateTo(item.url);
+  }
+
+  // Android's "before the page loads" injection is documented as unreliable (it can run after
+  // the page's own scripts), so the same script also runs when the page finishes loading. The
+  // scripts guard against running twice.
+  const pageScript =
+    (blockAds ? AD_BLOCK_SCRIPT : '') + (blockPopups ? POPUP_BLOCK_SCRIPT : '') + FULLSCREEN_WATCHER;
 
   // Android back button walks back through the site's history before leaving it.
   useFocusEffect(
@@ -171,10 +306,15 @@ export function SiteView({ site }: { site: Site }) {
   useEffect(() => () => setActivityHold(false), [setActivityHold]);
 
   function handleMessage(event: WebViewMessageEvent) {
-    let message: FullscreenMessage;
+    let message: FullscreenMessage | { type: typeof POPUP_MESSAGE; url: string };
     try {
       message = JSON.parse(event.nativeEvent.data);
     } catch {
+      return;
+    }
+    // The page's window.open() was answered with a stand-in window (see POPUP_BLOCK_SCRIPT).
+    if (message?.type === POPUP_MESSAGE) {
+      if (typeof message.url === 'string') reportBlocked('popup', message.url);
       return;
     }
     if (message?.type !== FULLSCREEN_MESSAGE) return;
@@ -238,6 +378,9 @@ export function SiteView({ site }: { site: Site }) {
         // Android can only screenshot a WebView through a real (non-collapsed) parent view.
         collapsable={false}
         style={styles.webView}
+        onTouchStart={() => {
+          lastTouchAt.current = Date.now();
+        }}
         onLayout={(event) => {
           pageSize.current = event.nativeEvent.layout;
         }}>
@@ -256,10 +399,15 @@ export function SiteView({ site }: { site: Site }) {
           allowsInlineMediaPlayback
           allowsFullscreenVideo
           allowsPictureInPictureMediaPlayback
-          injectedJavaScriptBeforeContentLoaded={FULLSCREEN_WATCHER}
+          injectedJavaScriptBeforeContentLoaded={pageScript}
           injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
+          injectedJavaScript={pageScript}
           onMessage={handleMessage}
-          setSupportMultipleWindows={false}
+          // Pop-ups come to onOpenWindow. (Turning multiple windows off instead would let a
+          // malicious frame take over the page, per the react-native-webview docs.)
+          setSupportMultipleWindows
+          javaScriptCanOpenWindowsAutomatically={false}
+          onOpenWindow={handleOpenWindow}
           overScrollMode="never"
           onNavigationStateChange={(state) => {
             setCanGoBack(state.canGoBack);
@@ -267,12 +415,7 @@ export function SiteView({ site }: { site: Site }) {
             setCurrentTitle(state.title);
           }}
           onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
-          onShouldStartLoadWithRequest={(request) => {
-            // mailto:, tel:, intent:, app deep links... belong to other apps.
-            if (/^(https?|about|data|blob):/i.test(request.url)) return true;
-            Linking.openURL(request.url).catch(() => {});
-            return false;
-          }}
+          onShouldStartLoadWithRequest={shouldStartLoad}
           renderError={(_domain, _code, description) => (
             <ThemedView style={styles.error}>
               <ThemedText type="subtitle">Can’t open {site.name}</ThemedText>
@@ -285,6 +428,13 @@ export function SiteView({ site }: { site: Site }) {
             </ThemedView>
           )}
         />
+        {blocked && (
+          <BlockedBanner
+            item={blocked}
+            onAllow={() => allowBlocked(blocked)}
+            onDismiss={dismissBlocked}
+          />
+        )}
       </View>
     </View>
   );

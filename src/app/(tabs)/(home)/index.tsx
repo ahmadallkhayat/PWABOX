@@ -140,16 +140,6 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
-          headerLeft: editing
-            ? () => (
-                <HeaderTextButton
-                  label={allSelected ? 'Deselect all' : 'Select all'}
-                  onPress={() =>
-                    setSelected(allSelected ? new Set() : new Set(sites.map((site) => site.id)))
-                  }
-                />
-              )
-            : undefined,
           headerRight: () =>
             editing ? (
               <HeaderTextButton label="Done" bold onPress={stopEditing} />
@@ -203,8 +193,15 @@ export default function HomeScreen() {
         <ThemedView
           type="backgroundElement"
           style={[styles.editBar, { paddingBottom: insets.bottom + Spacing.three }]}>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-            {selected.size === 0 ? 'Select apps to remove' : `${selected.size} selected`}
+          {/* Down here rather than in the header, where it sat right against the first row of apps. */}
+          <Pressable
+            onPress={() => setSelected(allSelected ? new Set() : new Set(sites.map((site) => site.id)))}
+            hitSlop={8}
+            accessibilityRole="button">
+            <ThemedText style={styles.headerText}>{allSelected ? 'Deselect all' : 'Select all'}</ThemedText>
+          </Pressable>
+          <ThemedText type="small" themeColor="textSecondary" style={[styles.flex, styles.centered]}>
+            {selected.size === 0 ? 'Tap apps to select' : `${selected.size} selected`}
           </ThemedText>
           <Pressable
             onPress={deleteSelected}

@@ -7,11 +7,20 @@ export type LockTimeout = 0 | 30_000 | 60_000 | 300_000;
 export type Settings = {
   lockEnabled: boolean;
   lockTimeout: LockTimeout;
+  /** Hide ads and stop known ad networks from loading. */
+  blockAds: boolean;
+  /** Stop sites opening new windows to other websites. */
+  blockPopups: boolean;
+  /** Stop pages sending you to other websites without a tap. */
+  blockRedirects: boolean;
 };
 
 const DEFAULT_SETTINGS: Settings = {
   lockEnabled: false,
   lockTimeout: 0,
+  blockAds: true,
+  blockPopups: true,
+  blockRedirects: true,
 };
 
 const STORAGE_KEY = 'pwabox.settings.v1';

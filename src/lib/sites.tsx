@@ -18,6 +18,8 @@ export type Site = SiteInfo & {
   addedAt: number;
   /** Pages saved inside this site, newest first. Missing on sites saved before bookmarks existed. */
   bookmarks?: Bookmark[];
+  /** Other websites the user let this site redirect to (see blocking.ts `siteOf`). */
+  allowedRedirects?: string[];
 };
 
 type SitesContextValue = {
@@ -30,6 +32,7 @@ type SitesContextValue = {
   addBookmark: (siteId: string, page: { url: string; title: string }) => Bookmark;
   removeBookmark: (siteId: string, bookmarkId: string) => void;
   setBookmarkPreview: (siteId: string, bookmarkId: string, preview: string) => void;
+  allowRedirectsTo: (siteId: string, otherSite: string) => void;
 };
 
 const STORAGE_KEY = 'pwabox.sites.v1';
@@ -116,6 +119,16 @@ export function SitesProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function allowRedirectsTo(siteId: string, otherSite: string) {
+    update((current) =>
+      current.map((site) =>
+        site.id === siteId && !site.allowedRedirects?.includes(otherSite)
+          ? { ...site, allowedRedirects: [...(site.allowedRedirects ?? []), otherSite] }
+          : site
+      )
+    );
+  }
+
   function findBookmark(siteId: string, bookmarkId: string) {
     return sites.find((site) => site.id === siteId)?.bookmarks?.find((b) => b.id === bookmarkId);
   }
@@ -131,6 +144,7 @@ export function SitesProvider({ children }: { children: ReactNode }) {
         addBookmark,
         removeBookmark,
         setBookmarkPreview,
+        allowRedirectsTo,
       }}>
       {children}
     </SitesContext>
