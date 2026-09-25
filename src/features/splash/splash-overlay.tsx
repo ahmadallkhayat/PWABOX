@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   },
   // Same size as the native splash image (imageWidth in app.json).
   logo: {
-    width: 200,
-    height: 207,
+    width: 150,
+    height: 145,
   },
 });

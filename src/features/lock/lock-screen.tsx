@@ -56,8 +56,8 @@ const styles = StyleSheet.create({
     padding: space.xxl,
   },
   logo: {
-    width: 160,
-    height: 166,
+    width: 120,
+    height: 116,
   },
   actions: {
     alignItems: 'center',
