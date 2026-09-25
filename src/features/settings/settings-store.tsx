@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
-import { setHapticsEnabled } from '@/ui';
+import { setAppearance, setHapticsEnabled, type AppearancePreference } from '@/ui';
 
 /** When the app locks: as soon as it's left (0), or after this many ms without being used. */
 export type LockTimeout = 0 | 30_000 | 60_000 | 300_000;
@@ -17,6 +17,8 @@ export type Settings = {
   blockRedirects: boolean;
   /** Vibration feedback on taps, toggles, drags and confirmations. */
   haptics: boolean;
+  /** Light, dark, or follow the phone. */
+  appearance: AppearancePreference;
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +28,7 @@ const DEFAULT_SETTINGS: Settings = {
   blockPopups: true,
   blockRedirects: true,
   haptics: true,
+  appearance: 'system',
 };
 
 const STORAGE_KEY = 'pwabox.settings.v1';
@@ -50,9 +53,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  // The haptics helper lives outside React; keep it in step with the setting.
+  // Haptics and appearance are applied outside React; keep them in step with the settings.
   useEffect(() => {
-    if (settings) setHapticsEnabled(settings.haptics);
+    if (!settings) return;
+    setHapticsEnabled(settings.haptics);
+    setAppearance(settings.appearance);
   }, [settings]);
 
   if (!settings) return null;

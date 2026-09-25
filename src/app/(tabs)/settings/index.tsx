@@ -3,8 +3,15 @@ import { Alert, Platform } from 'react-native';
 
 import { useAppLock } from '@/features/lock/app-lock';
 import { useSettings, type LockTimeout } from '@/features/settings/settings-store';
+import type { AppearancePreference } from '@/ui';
 import { useSites } from '@/features/sites/sites-store';
 import { ListRow, ListSection, Screen } from '@/ui';
+
+const APPEARANCES: { value: AppearancePreference; title: string; subtitle?: string }[] = [
+  { value: 'system', title: 'Match system', subtitle: 'Follows your phone’s light or dark setting' },
+  { value: 'light', title: 'Light' },
+  { value: 'dark', title: 'Dark' },
+];
 
 const LOCK_TIMEOUTS: { value: LockTimeout; title: string; subtitle?: string }[] = [
   { value: 0, title: 'When I leave the app', subtitle: 'Including when the screen turns off' },
@@ -37,6 +44,19 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
+      <ListSection title="Appearance">
+        {APPEARANCES.map((option) => (
+          <ListRow
+            key={option.value}
+            title={option.title}
+            subtitle={option.subtitle}
+            accessibilityRole="radio"
+            accessory={{ type: 'check', checked: settings.appearance === option.value }}
+            onPress={() => updateSettings({ appearance: option.value })}
+          />
+        ))}
+      </ListSection>
+
       <ListSection
         title="App lock"
         footer={

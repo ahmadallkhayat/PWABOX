@@ -1,24 +1,25 @@
 import { useSyncExternalStore } from 'react';
-import { useColorScheme as useRNColorScheme } from 'react-native';
+import { useColorScheme as useSystemColorScheme } from 'react-native';
 
-const subscribe = () => () => {};
+import { getAppearance, subscribeToAppearance } from '@/ui/theme/appearance';
+
+const noSubscription = () => () => {};
 
 /**
- * To support static rendering, this value needs to be re-calculated on the client side for web
+ * Like the native version, but static rendering can't know the browser's setting, so it renders
+ * light until the page has hydrated on the client.
  */
-export function useColorScheme() {
+export function useColorScheme(): 'light' | 'dark' {
   // false while statically rendering and hydrating, true once running in the browser.
   const hasHydrated = useSyncExternalStore(
-    subscribe,
+    noSubscription,
     () => true,
     () => false
   );
+  const system = useSystemColorScheme();
+  const preference = useSyncExternalStore(subscribeToAppearance, getAppearance, getAppearance);
 
-  const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
-  }
-
-  return 'light';
+  if (!hasHydrated) return 'light';
+  if (preference !== 'system') return preference;
+  return system === 'dark' ? 'dark' : 'light';
 }

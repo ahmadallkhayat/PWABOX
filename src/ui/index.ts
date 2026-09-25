@@ -17,5 +17,6 @@ export { Text } from '@/ui/text';
 export { TextField } from '@/ui/text-field';
 export { Toast } from '@/ui/toast';
 export { BRAND, layout, radius, space, typography, type ColorName, type ThemeColors } from '@/ui/theme/tokens';
+export { setAppearance, type AppearancePreference } from '@/ui/theme/appearance';
 export { useColorScheme } from '@/ui/theme/use-color-scheme';
 export { useTheme, type Theme } from '@/ui/theme/use-theme';
