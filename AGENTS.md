@@ -50,3 +50,4 @@ See README.md for the full map. In short:
 - Give interactions feedback with `haptic(event)` from `@/ui` (buttons, switches and list rows already do).
 - Every screen's content goes in `<Screen>` so padding and safe areas stay consistent.
 - Don't give views that contain buttons an entering/exiting animation that moves them (`SlideIn*`, `FadeInDown`, etc.): on Android with the New Architecture their buttons stop receiving taps (react-native-reanimated#6676). Fades are fine.
+- Use `Pressable` from `@/ui` (react-native-gesture-handler's), never React Native's: RN's Pressable misses taps on Android inside native screens (react-navigation#12039). Inside a RN `<Modal>`, wrap content in `ModalGestureRoot` (Dialog, Sheet and the lock screen already do).

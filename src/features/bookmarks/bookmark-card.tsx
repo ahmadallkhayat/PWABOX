@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { previewUri } from '@/features/bookmarks/previews';
 import type { Bookmark, Site } from '@/features/sites/sites-store';
 import { SiteIcon } from '@/features/sites/site-icon';
-import { haptic, IconButton, radius, space, Text, useTheme } from '@/ui';
+import { haptic, IconButton, Pressable, radius, space, Text, useTheme } from '@/ui';
 
 type BookmarkCardProps = {
   bookmark: Bookmark;

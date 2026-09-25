@@ -1,10 +1,10 @@
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookmarkCard, displayUrl } from '@/features/bookmarks/bookmark-card';
 import type { Site } from '@/features/sites/sites-store';
 import { SiteIcon } from '@/features/sites/site-icon';
-import { haptic, layout, radius, Sheet, space, Text, useTheme } from '@/ui';
+import { haptic, layout, Pressable, radius, Sheet, space, Text, useTheme } from '@/ui';
 
 type BookmarksSheetProps = {
   site: Site;

@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { Modal, StyleSheet, View } from 'react-native';
 
-import { BRAND, Button, space, Text } from '@/ui';
+import { BRAND, Button, ModalGestureRoot, space, Text } from '@/ui';
 
 type LockScreenProps = {
   visible: boolean;
@@ -25,21 +25,23 @@ export function LockScreen({ visible, locked, methodLabel, onUnlock }: LockScree
       navigationBarTranslucent
       // Android's back button must not dismiss the lock.
       onRequestClose={() => {}}>
-      <View style={styles.screen}>
-        <Image
-          source={require('@/assets/images/splash-icon.png')}
-          style={styles.logo}
-          contentFit="contain"
-        />
-        {locked && (
-          <View style={styles.actions}>
-            <Text variant="title2" color="#FFFFFF">
-              PWABOX is locked
-            </Text>
-            <Button title={`Unlock with ${methodLabel}`} variant="inverse" onPress={onUnlock} />
-          </View>
-        )}
-      </View>
+      <ModalGestureRoot>
+        <View style={styles.screen}>
+          <Image
+            source={require('@/assets/images/splash-icon.png')}
+            style={styles.logo}
+            contentFit="contain"
+          />
+          {locked && (
+            <View style={styles.actions}>
+              <Text variant="title2" color="#FFFFFF">
+                PWABOX is locked
+              </Text>
+              <Button title={`Unlock with ${methodLabel}`} variant="inverse" onPress={onUnlock} />
+            </View>
+          )}
+        </View>
+      </ModalGestureRoot>
     </Modal>
   );
 }

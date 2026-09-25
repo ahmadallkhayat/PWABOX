@@ -23,6 +23,7 @@ const ICONS = {
   forward: { ios: 'chevron.right', android: 'arrow_forward', web: 'arrow_forward' },
   globe: { ios: 'globe', android: 'public', web: 'public' },
   haptics: { ios: 'iphone.radiowaves.left.and.right', android: 'vibration', web: 'vibration' },
+  history: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' },
   home: { ios: 'house', android: 'home', web: 'home' },
   install: { ios: 'plus.app', android: 'install_mobile', web: 'install_mobile' },
   lock: { ios: 'lock.fill', android: 'lock', web: 'lock' },

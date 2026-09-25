@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { IconButton } from '@/ui/icon-button';
+import { ModalGestureRoot } from '@/ui/modal-gesture-root';
+import { Pressable } from '@/ui/pressable';
 import { Text } from '@/ui/text';
 import { layout, radius, space } from '@/ui/theme/tokens';
 import { useTheme } from '@/ui/theme/use-theme';
@@ -31,40 +33,42 @@ export function Dialog({ visible, title, onClose, dismissDisabled, children }: D
       statusBarTranslucent
       navigationBarTranslucent
       onRequestClose={close ?? (() => {})}>
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable
-          style={[styles.backdrop, { backgroundColor: colors.backdrop }]}
-          onPress={close}
-          accessible={false}>
-          {/* Swallows taps so pressing inside the card doesn't close it. */}
-          <Pressable style={styles.cardWrapper} onPress={() => {}} accessible={false}>
-            <View style={[styles.card, { backgroundColor: colors.background }]}>
-              <ScrollView
-                bounces={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.content}>
-                <View style={styles.header}>
-                  <Text variant="headline" style={styles.title} accessibilityRole="header">
-                    {title}
-                  </Text>
-                  <IconButton
-                    icon="close"
-                    variant="filled"
-                    size={18}
-                    accessibilityLabel="Close"
-                    onPress={onClose}
-                    disabled={dismissDisabled}
-                    haptic={false}
-                  />
-                </View>
-                {children}
-              </ScrollView>
-            </View>
+      <ModalGestureRoot>
+        <KeyboardAvoidingView
+          style={styles.fill}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Pressable
+            style={[styles.backdrop, { backgroundColor: colors.backdrop }]}
+            onPress={close}
+            accessible={false}>
+            {/* Swallows taps so pressing inside the card doesn't close it. */}
+            <Pressable style={styles.cardWrapper} onPress={() => {}} accessible={false}>
+              <View style={[styles.card, { backgroundColor: colors.background }]}>
+                <ScrollView
+                  bounces={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.content}>
+                  <View style={styles.header}>
+                    <Text variant="headline" style={styles.title} accessibilityRole="header">
+                      {title}
+                    </Text>
+                    <IconButton
+                      icon="close"
+                      variant="filled"
+                      size={18}
+                      accessibilityLabel="Close"
+                      onPress={onClose}
+                      disabled={dismissDisabled}
+                      haptic={false}
+                    />
+                  </View>
+                  {children}
+                </ScrollView>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </ModalGestureRoot>
     </Modal>
   );
 }

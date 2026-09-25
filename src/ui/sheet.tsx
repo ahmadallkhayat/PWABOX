@@ -3,6 +3,7 @@ import { Modal, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/ui/button';
+import { ModalGestureRoot } from '@/ui/modal-gesture-root';
 import { Text } from '@/ui/text';
 import { layout, space } from '@/ui/theme/tokens';
 import { useTheme } from '@/ui/theme/use-theme';
@@ -23,21 +24,34 @@ export function Sheet({ visible, title, onClose, children }: SheetProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View
-        style={[
-          styles.sheet,
-          // iOS page sheets sit below the status bar by themselves; Android's modal is edge to edge.
-          { backgroundColor: colors.background, paddingTop: Platform.OS === 'ios' ? 0 : insets.top },
-        ]}>
-        <View style={styles.header}>
-          <Text variant="headline" numberOfLines={1} style={styles.title} accessibilityRole="header">
-            {title}
-          </Text>
-          <Button title="Done" variant="plain" onPress={onClose} haptic={false} />
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}>
+      <ModalGestureRoot>
+        <View
+          style={[
+            styles.sheet,
+            // iOS page sheets sit below the status bar by themselves; Android's modal is edge to edge.
+            {
+              backgroundColor: colors.background,
+              paddingTop: Platform.OS === 'ios' ? 0 : insets.top,
+            },
+          ]}>
+          <View style={styles.header}>
+            <Text
+              variant="headline"
+              numberOfLines={1}
+              style={styles.title}
+              accessibilityRole="header">
+              {title}
+            </Text>
+            <Button title="Done" variant="plain" onPress={onClose} haptic={false} />
+          </View>
+          {children}
         </View>
-        {children}
-      </View>
+      </ModalGestureRoot>
     </Modal>
   );
 }

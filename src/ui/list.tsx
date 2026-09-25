@@ -1,8 +1,9 @@
 import { Children, Fragment, isValidElement, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 
 import { haptic } from '@/ui/haptics';
 import { Icon, type IconName } from '@/ui/icon';
+import { Pressable } from '@/ui/pressable';
 import { Separator, Surface } from '@/ui/surface';
 import { Text } from '@/ui/text';
 import { layout, space } from '@/ui/theme/tokens';
@@ -60,16 +61,26 @@ type ListRowProps = {
   accessory?: Accessory;
   onPress?: () => void;
   accessibilityRole?: 'button' | 'radio';
+  /** A row that deletes or resets something: shown in the danger color. */
+  destructive?: boolean;
 };
 
-export function ListRow({ title, subtitle, icon, accessory, onPress, accessibilityRole }: ListRowProps) {
+export function ListRow({
+  title,
+  subtitle,
+  icon,
+  accessory,
+  onPress,
+  accessibilityRole,
+  destructive,
+}: ListRowProps) {
   const { colors } = useTheme();
 
   const content = (
     <>
-      {icon && <Icon name={icon} size={ICON_SIZE} />}
+      {icon && <Icon name={icon} size={ICON_SIZE} color={destructive ? 'danger' : 'text'} />}
       <View style={styles.text}>
-        <Text>{title}</Text>
+        <Text color={destructive ? 'danger' : 'text'}>{title}</Text>
         {subtitle && (
           <Text variant="footnote" color="textSecondary">
             {subtitle}

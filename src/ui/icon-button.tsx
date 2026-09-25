@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { haptic, type HapticEvent } from '@/ui/haptics';
 import { Icon, type IconName } from '@/ui/icon';
+import { Pressable } from '@/ui/pressable';
 import { layout, type ColorName } from '@/ui/theme/tokens';
 import { useTheme } from '@/ui/theme/use-theme';
 

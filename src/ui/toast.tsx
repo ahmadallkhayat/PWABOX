@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { haptic } from '@/ui/haptics';
 import { Icon, type IconName } from '@/ui/icon';
 import { IconButton } from '@/ui/icon-button';
+import { Pressable } from '@/ui/pressable';
 import { Text } from '@/ui/text';
 import { layout, radius, space } from '@/ui/theme/tokens';
 import { useTheme } from '@/ui/theme/use-theme';
