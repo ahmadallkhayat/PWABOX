@@ -1,38 +1,29 @@
 import { Stack, useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Sortable, { type SortableGridRenderItem } from 'react-native-sortables';
+import Sortable from 'react-native-sortables';
 
-import { AddSiteDialog } from '@/components/add-site-dialog';
-import { SiteIcon } from '@/components/site-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { useSites, type Site } from '@/lib/sites';
+import { AddSiteDialog } from '@/features/sites/add-site-dialog';
+import { AppTile, TILE_WIDTH } from '@/features/sites/app-tile';
+import { useSites } from '@/features/sites/sites-store';
 import { useTabBar } from '@/lib/tab-bar';
-
-const TILE_WIDTH = 88;
-const ICON_SIZE = 64;
-const ACCENT = '#208AEF';
-const DANGER = '#E5484D';
+import {
+  BOTTOM_BAR_HEIGHT,
+  BottomBar,
+  Button,
+  EmptyState,
+  haptic,
+  IconButton,
+  layout,
+  Screen,
+  space,
+  Text,
+} from '@/ui';
 
 export default function HomeScreen() {
   const { sites, loaded, removeSites, reorderSites } = useSites();
   const router = useRouter();
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
 
@@ -49,8 +40,9 @@ export default function HomeScreen() {
     return () => setTabBarHidden(false);
   }, [editing, setTabBarHidden]);
 
-  const contentWidth = Math.min(width, MaxContentWidth) - Spacing.three * 2;
-  const columns = Math.max(3, Math.floor(contentWidth / TILE_WIDTH));
+  const gridWidth = Math.min(width, layout.maxContentWidth) - layout.gutter * 2;
+  const columns = Math.max(3, Math.floor(gridWidth / TILE_WIDTH));
+  const allSelected = sites.length > 0 && sites.every((site) => selected.has(site.id));
 
   function startEditing(firstSelectedId?: string) {
     setSelected(new Set(firstSelectedId ? [firstSelectedId] : []));
@@ -71,8 +63,6 @@ export default function HomeScreen() {
     });
   }
 
-  const allSelected = sites.length > 0 && sites.every((site) => selected.has(site.id));
-
   function deleteSelected() {
     const ids = sites.filter((site) => selected.has(site.id)).map((site) => site.id);
     if (ids.length === 0) return;
@@ -80,10 +70,12 @@ export default function HomeScreen() {
     const title = ids.length === 1 ? 'Remove 1 app?' : `Remove ${ids.length} apps?`;
     const message = 'Their bookmarks will be deleted too.';
     const remove = () => {
+      haptic('success');
       removeSites(ids);
       setSelected(new Set());
     };
 
+    haptic('warning');
     if (Platform.OS === 'web') {
       if (window.confirm(`${title} ${message}`)) remove();
       return;
@@ -94,273 +86,108 @@ export default function HomeScreen() {
     ]);
   }
 
-  const renderItem: SortableGridRenderItem<Site> = ({ item }) => {
-    const isSelected = selected.has(item.id);
-    return (
-      <Sortable.Touchable
-        style={styles.tile}
-        onTap={() =>
-          editing
-            ? toggleSelected(item.id)
-            : router.push({ pathname: '/site/[id]', params: { id: item.id } })
-        }
-        onLongPress={() => {
-          if (!editing) startEditing(item.id);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={editing ? `${isSelected ? 'Deselect' : 'Select'} ${item.name}` : `Open ${item.name}`}
-        accessibilityHint={editing ? 'Drag to reorder' : 'Long press to edit apps'}>
-        <View>
-          <SiteIcon name={item.name} iconUrl={item.iconUrl} themeColor={item.themeColor} size={ICON_SIZE} />
-          {editing && (
-            <View
-              style={[
-                styles.check,
-                { borderColor: theme.background },
-                isSelected ? styles.checkOn : { backgroundColor: theme.backgroundSelected },
-              ]}>
-              {isSelected && (
-                <SymbolView
-                  name={{ ios: 'checkmark', android: 'check', web: 'check' }}
-                  tintColor="#ffffff"
-                  size={12}
-                />
-              )}
-            </View>
-          )}
-        </View>
-        <ThemedText type="small" numberOfLines={1} style={styles.tileLabel}>
-          {item.name}
-        </ThemedText>
-      </Sortable.Touchable>
-    );
-  };
-
   return (
-    <ThemedView style={styles.container}>
+    <>
       <Stack.Screen
         options={{
           headerRight: () =>
             editing ? (
-              <HeaderTextButton label="Done" bold onPress={stopEditing} />
+              <Button title="Done" variant="plain" onPress={stopEditing} />
             ) : (
-              <View style={styles.headerButtons}>
-                {sites.length > 0 && <HeaderTextButton label="Edit" onPress={() => startEditing()} />}
-                <Pressable hitSlop={12} accessibilityLabel="Add website" onPress={() => setAdding(true)}>
-                  <SymbolView
-                    name={{ ios: 'plus', android: 'add', web: 'add' }}
-                    tintColor={theme.text}
-                    size={24}
-                  />
-                </Pressable>
+              <View style={styles.headerActions}>
+                {sites.length > 0 && <Button title="Edit" variant="plain" onPress={() => startEditing()} />}
+                <IconButton icon="add" size={24} accessibilityLabel="Add website" onPress={() => setAdding(true)} />
               </View>
             ),
         }}
       />
 
       {!loaded ? (
-        <ActivityIndicator style={styles.loading} />
+        <Screen scroll={false} centered>
+          <ActivityIndicator />
+        </Screen>
       ) : sites.length === 0 ? (
-        <EmptyState onAdd={() => setAdding(true)} />
+        <Screen scroll={false} centered>
+          <EmptyState
+            title="No apps yet"
+            message="Add any website and it opens here as an app, with its own icon and name."
+            action={{ title: 'Add a website', onPress: () => setAdding(true) }}
+          />
+        </Screen>
       ) : (
-        <Animated.ScrollView
-          ref={scrollRef}
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={[
-            styles.grid,
-            editing && { paddingBottom: insets.bottom + 96 },
-          ]}>
+        <Screen scrollRef={scrollRef} bottomInset={editing ? BOTTOM_BAR_HEIGHT : 0}>
           <Sortable.Grid
             data={sites}
             columns={columns}
             keyExtractor={(site) => site.id}
-            renderItem={renderItem}
+            renderItem={({ item }) => (
+              <AppTile
+                site={item}
+                editing={editing}
+                selected={selected.has(item.id)}
+                onPress={() =>
+                  editing
+                    ? toggleSelected(item.id)
+                    : router.push({ pathname: '/site/[id]', params: { id: item.id } })
+                }
+                onLongPress={() => {
+                  if (!editing) startEditing(item.id);
+                }}
+              />
+            )}
             sortEnabled={editing}
-            onDragEnd={({ data }) => reorderSites(data.map((site) => site.id))}
+            onDragStart={() => haptic('dragStart')}
+            onDragEnd={({ data }) => {
+              haptic('drop');
+              reorderSites(data.map((site) => site.id));
+            }}
             scrollableRef={scrollRef}
-            rowGap={Spacing.four}
+            rowGap={space.xl}
             dragActivationDelay={150}
             activeItemScale={1.1}
             inactiveItemOpacity={0.8}
           />
-          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+          <Text variant="footnote" color="textSecondary" align="center">
             {editing ? 'Drag to reorder · Tap to select' : 'Long press an app to edit'}
-          </ThemedText>
-        </Animated.ScrollView>
+          </Text>
+        </Screen>
       )}
 
       {editing && (
-        <ThemedView
-          type="backgroundElement"
-          style={[styles.editBar, { paddingBottom: insets.bottom + Spacing.three }]}>
-          {/* Down here rather than in the header, where it sat right against the first row of apps. */}
-          <Pressable
+        <BottomBar>
+          <Button
+            title={allSelected ? 'Deselect all' : 'Select all'}
+            variant="plain"
             onPress={() => setSelected(allSelected ? new Set() : new Set(sites.map((site) => site.id)))}
-            hitSlop={8}
-            accessibilityRole="button">
-            <ThemedText style={styles.headerText}>{allSelected ? 'Deselect all' : 'Select all'}</ThemedText>
-          </Pressable>
-          <ThemedText type="small" themeColor="textSecondary" style={[styles.flex, styles.centered]}>
+            haptic="selection"
+          />
+          <Text variant="footnote" color="textSecondary" align="center" style={styles.flex}>
             {selected.size === 0 ? 'Tap apps to select' : `${selected.size} selected`}
-          </ThemedText>
-          <Pressable
+          </Text>
+          <Button
+            title="Delete"
+            icon="delete"
+            variant="destructive"
+            size="sm"
             onPress={deleteSelected}
             disabled={selected.size === 0}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.deleteButton,
-              (pressed || selected.size === 0) && styles.dimmed,
-            ]}>
-            <SymbolView
-              name={{ ios: 'trash', android: 'delete', web: 'delete' }}
-              tintColor="#ffffff"
-              size={16}
-            />
-            <ThemedText style={styles.deleteText}>Delete</ThemedText>
-          </Pressable>
-        </ThemedView>
+            haptic={false}
+          />
+        </BottomBar>
       )}
 
       <AddSiteDialog visible={adding} onClose={() => setAdding(false)} />
-    </ThemedView>
-  );
-}
-
-function HeaderTextButton({
-  label,
-  onPress,
-  bold,
-}: {
-  label: string;
-  onPress: () => void;
-  bold?: boolean;
-}) {
-  return (
-    <Pressable onPress={onPress} hitSlop={12} accessibilityRole="button">
-      <ThemedText style={[styles.headerText, bold && styles.headerTextBold]}>{label}</ThemedText>
-    </Pressable>
-  );
-}
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  return (
-    <View style={styles.empty}>
-      <ThemedText type="subtitle" style={styles.centered}>
-        No apps yet
-      </ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.centered}>
-        Add any website and it opens here as an app, with its own icon and name.
-      </ThemedText>
-      <Pressable
-        onPress={onAdd}
-        style={({ pressed }) => [styles.primaryButton, pressed && styles.dimmed]}>
-        <ThemedText style={styles.primaryButtonText}>Add a website</ThemedText>
-      </Pressable>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   flex: {
     flex: 1,
   },
-  loading: {
-    marginTop: Spacing.six,
-  },
-  headerButtons: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.four,
-  },
-  headerText: {
-    color: ACCENT,
-    fontSize: 17,
-  },
-  headerTextBold: {
-    fontWeight: 600,
-  },
-  grid: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-  },
-  tile: {
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  tileLabel: {
-    maxWidth: TILE_WIDTH,
-    textAlign: 'center',
-  },
-  check: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkOn: {
-    backgroundColor: ACCENT,
-  },
-  hint: {
-    textAlign: 'center',
-    marginTop: Spacing.four,
-  },
-  editBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    backgroundColor: DANGER,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two + Spacing.one,
-    borderRadius: Spacing.five,
-  },
-  deleteText: {
-    color: '#ffffff',
-    fontWeight: 600,
-  },
-  dimmed: {
-    opacity: 0.5,
-  },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.five,
-    gap: Spacing.three,
-  },
-  centered: {
-    textAlign: 'center',
-  },
-  primaryButton: {
-    marginTop: Spacing.two,
-    backgroundColor: ACCENT,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
-    borderRadius: Spacing.five,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: 600,
+    gap: space.lg,
   },
 });

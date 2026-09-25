@@ -39,3 +39,13 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## This project's structure and design system
+
+See README.md for the full map. In short:
+
+- `src/app/` holds routes only; put logic and UI in `src/features/<area>/` and reusable UI in `src/ui/`. Imports go one way: app → features → ui (ui never imports features).
+- Build UI from `@/ui` (`Screen`, `Text`, `Button`, `IconButton`, `Icon`, `ListSection`/`ListRow`, `Dialog`, `Sheet`, `BottomBar`, `Toast`, `EmptyState`, `TextField`, `Surface`). Don't style raw `Text`/`Pressable` for things these cover.
+- Never hard-code colors, spacing, radii or font sizes: use `useTheme().colors` / color names, `space`, `radius`, `typography`, `layout` from `@/ui`. New icons go in the list in `src/ui/icon.tsx`.
+- Give interactions feedback with `haptic(event)` from `@/ui` (buttons, switches and list rows already do).
+- Every screen's content goes in `<Screen>` so padding and safe areas stay consistent.

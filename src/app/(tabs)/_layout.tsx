@@ -1,23 +1,27 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useState } from 'react';
 
-import { useTheme } from '@/hooks/use-theme';
 import { TabBarContext } from '@/lib/tab-bar';
+import { useTheme } from '@/ui';
 
 export default function TabsLayout() {
-  const theme = useTheme();
+  const { colors } = useTheme();
   const [hidden, setHidden] = useState(false);
 
   return (
     <TabBarContext value={{ setTabBarHidden: setHidden }}>
       <NativeTabs
         hidden={hidden}
-        backgroundColor={theme.background}
-        indicatorColor={theme.backgroundSelected}
-        labelStyle={{ selected: { color: theme.text } }}>
+        backgroundColor={colors.background}
+        indicatorColor={colors.surfaceSelected}
+        tintColor={colors.accent}
+        labelStyle={{ selected: { color: colors.text } }}>
         <NativeTabs.Trigger name="(home)">
           <NativeTabs.Trigger.Label>Apps</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon sf={{ default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }} md="apps" />
+          <NativeTabs.Trigger.Icon
+            sf={{ default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }}
+            md="apps"
+          />
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="settings">
           <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>

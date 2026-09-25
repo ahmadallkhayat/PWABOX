@@ -1,56 +1,75 @@
-# Welcome to your Expo app 👋
+# PWABOX
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Save any website as an app: PWABOX reads the site's web app manifest for its name, icon and
+colors, puts it on a home grid, and opens it full screen in a WebView like an installed PWA.
+Also: bookmarks with previews, fullscreen video that rotates to fit, app lock (Face ID /
+fingerprint / PIN), and ad, pop-up and redirect blocking.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Built with Expo SDK 57 and Expo Router.
 
 ```bash
-npm run reset-project
+npm install
+npx expo start      # then open in Expo Go or a development build
+npx tsc --noEmit    # typecheck
+npx expo lint       # lint
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Project structure
 
-### Other setup steps
+```
+src/
+  app/        Routes only (Expo Router). Thin screens that compose features and ui.
+  ui/         The design system: tokens, theme and reusable components. Knows nothing about sites.
+  features/   The app's areas, each self-contained:
+    sites/      saved sites store, manifest lookup, icon, home tile, add dialog
+    browser/    the in-app browser: SiteView, top bar, navigation guard, fullscreen video,
+                and scripts/ injected into pages (ad/pop-up blocking, fullscreen watcher)
+    bookmarks/  bookmarks store actions, preview screenshots, bookmarks sheet
+    lock/       app lock (biometrics + inactivity) and lock screen
+    settings/   persisted settings
+    splash/     hand-over from the native splash screen
+  lib/        Small shared helpers (orientation, tab bar visibility).
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Dependencies point one way: `app → features → ui`. `ui` never imports from `features`.
 
-## Learn more
+## Design system (`src/ui`)
 
-To learn more about developing your project with Expo, look at the following resources:
+Import everything from `@/ui`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+**Tokens** (`ui/theme/tokens.ts`) are the only place values live:
 
-## Join the community
+- `useTheme().colors`: semantic colors that follow light/dark mode (`background`, `surface`,
+  `text`, `textSecondary`, `accent`, `danger`, ...). Components also accept these names directly,
+  e.g. `<Text color="textSecondary">`.
+- `space` (`xs` 4 · `sm` 8 · `md` 12 · `lg` 16 · `xl` 24 · `xxl` 32), `radius`, `typography`,
+  and `layout` (`gutter`, `maxContentWidth`, `minTouch`, ...).
+- `BRAND`: the app icon's blue, used for the splash and lock screens.
 
-Join our community of developers creating universal apps.
+**Components**
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+| Component | Use it for |
+| --- | --- |
+| `Screen` | The frame of every screen: background, side gutter, spacing between sections, max width, safe areas, scrolling |
+| `Text` | All text: `variant` from the type scale, `color` from the theme |
+| `Icon` / `IconButton` | Icons by meaning (`"close"`, `"bookmark"`, ...). Add new ones to the list in `ui/icon.tsx` |
+| `Button` | `primary` · `secondary` · `destructive` · `plain` · `inverse`, `sm`/`md`, optional icon and loading |
+| `TextField` | Text inputs |
+| `ListSection` + `ListRow` | Settings-style groups; rows take a `switch`, `check` or `value` accessory, separators are automatic |
+| `Surface` / `Separator` | Cards and hairlines |
+| `Dialog` | Centered pop-ups (e.g. Add website) |
+| `Sheet` | Pages that slide up (e.g. Bookmarks) |
+| `BottomBar` | Actions pinned to the bottom; pair with `<Screen bottomInset={BOTTOM_BAR_HEIGHT}>` |
+| `Toast` | Short notices with an optional action |
+| `EmptyState` | "Nothing here yet" messages with an action |
+| `haptic(event)` | Haptic feedback by meaning (`tap`, `selection`, `toggleOn`, `success`, ...). Buttons, icon buttons, switches and list rows already play one |
+
+A new screen is usually just:
+
+```tsx
+<Screen>
+  <ListSection title="Section">
+    <ListRow icon="lock" title="Something" accessory={{ type: 'switch', value, onValueChange }} />
+  </ListSection>
+</Screen>
+```
